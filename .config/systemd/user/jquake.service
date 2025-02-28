@@ -1,0 +1,13 @@
+[Unit]
+Description=JQuake
+Wants=network-online.target
+After=network-online.target graphical.target
+
+[Service]
+Environment=DISPLAY=:0
+ExecStart=%h/JQuake/JQuake.sh
+Restart=always
+
+[Install]
+WantedBy=default.target
+

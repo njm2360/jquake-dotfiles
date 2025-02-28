@@ -1,0 +1,10 @@
+[Unit]
+Description=Jihou Timer
+
+[Timer]
+OnCalendar=*-*-* 17:00:00
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target
+

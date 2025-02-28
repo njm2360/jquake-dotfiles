@@ -1,0 +1,7 @@
+JQuake.jar
+JQuake_lib/
+sounds/
+
+.env
+SettingsPath.properties
+errors.log

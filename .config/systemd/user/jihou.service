@@ -1,0 +1,10 @@
+[Unit]
+Description=Jihou Service
+
+[Service]
+ExecStart=mpv --quiet $HOME/jihou/sound.wav --volume=100
+Type=oneshot
+
+[Install]
+WantedBy=default.target
+

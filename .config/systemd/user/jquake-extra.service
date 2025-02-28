@@ -1,0 +1,14 @@
+[Unit]
+Description=JQuake extra
+After=jquake.service
+Requires=jquake.service
+
+[Service]
+Type=oneshot
+ExecStart=%h/JQuake/extra.sh
+Environment=DISPLAY=:0
+RemainAfterExit=true
+
+[Install]
+WantedBy=default.target
+

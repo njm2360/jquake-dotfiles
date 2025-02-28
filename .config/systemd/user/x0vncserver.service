@@ -1,0 +1,12 @@
+[Unit]
+Description=Remote desktop service (VNC)
+
+[Service]
+Type=simple
+ExecStartPre=/bin/sh -c 'while ! pgrep -U "$USER" openbox; do sleep 2; done'
+ExecStart=/usr/bin/x0vncserver -display :0 -rfbport 5900 -rfbauth %E/tigervnc/passwd
+Restart=always
+
+[Install]
+WantedBy=default.target
+
