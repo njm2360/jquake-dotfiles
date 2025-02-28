@@ -1,0 +1,9 @@
+[Unit]
+Description=JQuake monitoring service
+After=jquake.service
+Requires=jquake.service
+
+[Service]
+Type=oneshot
+ExecStart=%h/JQuake/monitoring.sh
+

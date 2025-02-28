@@ -1,0 +1,10 @@
+[Unit]
+Description=JQuake monitoring timer
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target
+
