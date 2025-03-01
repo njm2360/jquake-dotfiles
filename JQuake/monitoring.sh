@@ -43,11 +43,9 @@ DM-D.S.SのWebSocket接続に異常が発生しています。
 異常発生時刻: $(date "+%Y-%m-%d %H:%M:%S")
 "
 
-    nohup sh -c 'echo -e "$BODY" | msmtp "$ALERT_EMAIL"' > /dev/null
+    nohup sh -c "echo -e \"$BODY\" | msmtp \"$ALERT_EMAIL\"" > /dev/null &
 
-    exit 1
+    systemctl --user restart jquake.service
   fi
 done
-
-exit 0
 
