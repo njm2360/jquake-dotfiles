@@ -6,8 +6,10 @@ After=network-online.target graphical.target
 [Service]
 ExecStartPre=%h/JQuake/JQuake.pre.sh
 ExecStart=%h/JQuake/JQuake.sh
+ExecStartPost=/bin/bash -c '%h/JQuake/monitoring.sh &'
 Environment=DISPLAY=:0
 Restart=always
+Type=forking
 
 [Install]
 WantedBy=default.target

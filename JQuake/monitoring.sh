@@ -21,22 +21,33 @@ fi
 AUTH_HEADER="Authorization: Basic $(echo -n "${API_KEY}:" | base64)"
 BASE_URL="https://api.dmdata.jp/v2"
 
-response=$(curl -s -H "$AUTH_HEADER" "$BASE_URL/socket?status=open")
+initial_check=true
 
-item_count=$(echo "$response" | jq '.items | length')
+while true; do
+  if [ "$initial_check" = true ]; then
+    sleep 15
+    initial_check=false
+  else
+    sleep 60
+  fi
 
-if [ "$item_count" -eq 0 ]; then
-  echo "No open sockets found. Restarting JQuake..."
-  systemctl --user restart jquake
+  response=$(curl -s -H "$AUTH_HEADER" "$BASE_URL/socket?status=open")
 
-  # Send alert Email
-  BODY="Subject: 【異常】地震監視PC: DM-D.S.S接続異常
+  item_count=$(echo "$response" | jq '.items | length')
+
+  if [ "$item_count" -eq 0 ]; then
+    # Send alert Email
+    BODY="Subject: 【異常】地震監視PC: DM-D.S.S接続異常
 DM-D.S.SのWebSocket接続に異常が発生しています。
-JQuakeサービスを再起動しました。
 
 異常発生時刻: $(date "+%Y-%m-%d %H:%M:%S")
 "
 
-  echo -e "$BODY" | msmtp "$ALERT_EMAIL"
-fi
+    nohup sh -c 'echo -e "$BODY" | msmtp "$ALERT_EMAIL"' > /dev/null
+
+    exit 1
+  fi
+done
+
+exit 0
 
