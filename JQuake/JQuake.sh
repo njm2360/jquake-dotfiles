@@ -98,7 +98,7 @@ fi
 
 echo "Launching JQuake."
 
-java -Xmx200m -Xms32m -Xmn2m -Djava.net.preferIPv4Stack=true -Dawt.useSystemAAFontSettings=gasp -jar JQuake.jar > /dev/null &
+java -XX:+DisableExplicitGC -XX:+UseG1GC -XX:MaxGCPauseMillis=100 -XX:ParallelGCThreads=4 -Xmx512m -Xms512m -Xmn128m -Djava.net.preferIPv4Stack=true -Dawt.useSystemAAFontSettings=gasp -jar JQuake.jar > /dev/null &
 JAVA_PID=$!
 
 if [ -n "$API_KEY" ]; then
