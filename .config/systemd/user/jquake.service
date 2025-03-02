@@ -4,7 +4,6 @@ Wants=network-online.target
 After=network-online.target graphical.target
 
 [Service]
-ExecStartPre=%h/JQuake/JQuake.pre.sh
 ExecStart=%h/JQuake/JQuake.sh
 Environment=DISPLAY=:0
 Restart=always

@@ -2,7 +2,8 @@
 Description=Jihou Service
 
 [Service]
-ExecStart=mpv --quiet $HOME/jihou/sound.wav --volume=100
+WorkingDirectory=%h/jihou
+ExecStart=mpv --quiet sound.wav --volume=100
 Type=oneshot
 
 [Install]
