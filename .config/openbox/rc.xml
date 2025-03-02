@@ -318,7 +318,7 @@
     <!-- Keybindings for running applications -->
     <keybind key="C-A-Delete">
       <action name="Execute">
-        <command>reboot</command>
+        <command>systemctl reboot</command>
       </action>
     </keybind>
   </keyboard>
