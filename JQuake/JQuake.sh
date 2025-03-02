@@ -68,17 +68,24 @@ DM-D.S.SのWebSocket接続に異常が発生しています。
 
 # Trap Signal
 function cleanup() {
+  echo "Performing cleanup..."
+
   if [ -n "$MONITOR_PID" ]; then
+    echo "Stopping monitoring process (PID: $MONITOR_PID)"
     kill $MONITOR_PID 2>/dev/null || true
+    wait $MONITOR_PID 2>/dev/null || true
   fi
 
   if [ -n "$JAVA_PID" ]; then
+    echo "Stopping Java process (PID: $JAVA_PID)"
     kill $JAVA_PID 2>/dev/null || true
+    wait $JAVA_PID 2>/dev/null || true
   fi
 
   exit 1
 }
-trap cleanup SIGINT SIGTERM EXIT
+
+trap cleanup SIGINT SIGTERM
 
 if [ -f .env ]; then
   source .env
@@ -100,4 +107,13 @@ if [ -n "$API_KEY" ]; then
 fi
 
 wait $JAVA_PID
+EXIT_CODE=$?
+
+if [ -n "$MONITOR_PID" ]; then
+  echo "Stopping monitoring process (PID: $MONITOR_PID)"
+  kill $MONITOR_PID 2>/dev/null || true
+  wait $MONITOR_PID 2>/dev/null || true
+fi
+
+exit $EXIT_CODE
 
