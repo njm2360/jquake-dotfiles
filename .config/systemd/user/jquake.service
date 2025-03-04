@@ -1,9 +1,10 @@
 [Unit]
 Description=JQuake
 Wants=network-online.target
-After=network-online.target graphical.target
+After=network-online.target nss-lookup.target graphical.target
 
 [Service]
+ExecStartPre=/usr/bin/sh -c 'until resolvectl query dmdata.jp > /dev/null 2>&1; do sleep 1; done'
 ExecStart=%h/JQuake/JQuake.sh
 Environment=DISPLAY=:0
 Restart=always
