@@ -10,6 +10,7 @@ packages.txt     pacman -Qqe
 rootfs/          / に配置
 home/owner/      ~owner に配置
 home/eqwatch/    ~eqwatch に配置
+deploy-diff.py   実機との差分 (uv run deploy-diff.py [-s] [filter...])
 ```
 
 ### 置換が必要なもの
