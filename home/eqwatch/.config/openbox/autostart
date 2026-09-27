@@ -9,5 +9,5 @@ xset s off &
     wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 2>/dev/null && break
     sleep 1
   done
-  mpv ~/jihou/boot.wav
+  mpv ~/.local/share/jihou/boot.wav
 ) &

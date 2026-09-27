@@ -20,7 +20,7 @@ home/eqwatch/    ~eqwatch に配置
 - `rootfs/etc/nftables.conf`, `rootfs/etc/zabbix/zabbix_agentd.local.conf`: 監視サーバーのアドレス
 - `*.example` → 拡張子を外して配置
   - `/etc/msmtprc`, `/etc/default/health-report`
-  - `~/JQuake/.env`, `~/.config/speaker-check.env`, `~/.config/dtv.env`
+  - `~/.config/jquake.env`, `~/.config/speaker-check.env`, `~/.config/dtv.env`
 
 パッケージ標準の設定ファイルは触らずドロップインで上書き。`locale.gen`, `nftables.conf` のみ丸ごと。
 
@@ -49,7 +49,7 @@ systemctl --user enable jquake x0vncserver jihou.timer speaker-check.timer
 vncpasswd
 ```
 
-別途配置: `JQuake.jar`, `JQuake_lib/`, `sounds/`, `~/jihou/sound.wav`, `~/jihou/boot.wav`
+別途配置: `JQuake.jar`, `JQuake_lib/`, `sounds/`, `~/.local/share/jihou/sound.wav`, `~/.local/share/jihou/boot.wav`
 
 ### Secure Boot (sbctl)
 
@@ -102,7 +102,7 @@ find /mnt/rootfs.upper/upper -type f | sort            # 上層に書かれた�
 ### Firefox
 
 - 同梱の `firefox` プロファイル(unconfined)が同じパスに付くので `disable/` で無効化
-- AppArmor の deny はログに出ない。確認は `aa-exec -p firefox-eqwatch -- cat ~/JQuake/.env`
+- AppArmor の deny はログに出ない。確認は `aa-exec -p firefox-eqwatch -- cat ~/.config/jquake.env`
 - `/usr/local/bin/firefox` を通さないと `firefox.slice` に入らず、Firefox の OOM が `vm.panic_on_oom=1` でマシンごと落とす
 - パッケージの `firefox.desktop` は絶対パスで起動するので `~/.local/share/applications` で上書き(JQuake のリンク経由)
 

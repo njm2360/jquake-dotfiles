@@ -107,7 +107,7 @@ if [ -n "$EQ_UID" ]; then
 fi
 
 section "DM-D.S.S"
-api_key=$(sed -n 's/^API_KEY=["'\'']\{0,1\}\([^"'\'']*\).*/\1/p' "$EQ_HOME/JQuake/.env" 2>/dev/null)
+api_key=$(sed -n 's/^API_KEY=["'\'']\{0,1\}\([^"'\'']*\).*/\1/p' "$EQ_HOME/.config/jquake.env" 2>/dev/null)
 if [ -n "$api_key" ]; then
   # API キーがプロセス一覧に出ないよう stdin から渡す
   if resp=$(curl -fsS --connect-timeout 5 --max-time 10 -K - "https://api.dmdata.jp/v2/socket?status=open" <<<"user = \"${api_key}:\"" 2>&1); then

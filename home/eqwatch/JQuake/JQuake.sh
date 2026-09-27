@@ -91,8 +91,8 @@ function cleanup() {
 
 trap cleanup SIGINT SIGTERM
 
-if [ -f .env ]; then
-  source .env
+if [ -f ~/.config/jquake.env ]; then
+  source ~/.config/jquake.env
 fi
 
 if [ -n "$API_KEY" ]; then

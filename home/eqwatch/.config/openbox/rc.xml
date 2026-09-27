@@ -128,37 +128,37 @@
     </keybind>
     <keybind key="C-1">
       <action name="Execute">
-        <command>bash ~/dtv.sh 1</command>
+        <command>~/.local/bin/dtv 1</command>
       </action>
     </keybind>
     <keybind key="C-2">
       <action name="Execute">
-        <command>bash ~/dtv.sh 2</command>
+        <command>~/.local/bin/dtv 2</command>
       </action>
     </keybind>
     <keybind key="C-3">
       <action name="Execute">
-        <command>bash ~/dtv.sh 3</command>
+        <command>~/.local/bin/dtv 3</command>
       </action>
     </keybind>
     <keybind key="C-4">
       <action name="Execute">
-        <command>bash ~/dtv.sh 4</command>
+        <command>~/.local/bin/dtv 4</command>
       </action>
     </keybind>
     <keybind key="C-5">
       <action name="Execute">
-        <command>bash ~/dtv.sh 5</command>
+        <command>~/.local/bin/dtv 5</command>
       </action>
     </keybind>
     <keybind key="C-6">
       <action name="Execute">
-        <command>bash ~/dtv.sh 6</command>
+        <command>~/.local/bin/dtv 6</command>
       </action>
     </keybind>
     <keybind key="C-0">
       <action name="Execute">
-        <command>bash ~/dtv.sh 10</command>
+        <command>~/.local/bin/dtv 10</command>
       </action>
     </keybind>
   </keyboard>
