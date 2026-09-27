@@ -1,7 +1,7 @@
 # /// script
 # requires-python = ">=3.11"
 # ///
-"""リポジトリ (.env でプレースホルダ置換) と実機の差分を表示する"""
+"""リポジトリ (.env でプレースホルダ置換) と実機の差分を表示し、--apply で配置する"""
 
 import argparse
 import difflib
@@ -12,6 +12,7 @@ import shlex
 import subprocess
 import sys
 import tarfile
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -79,9 +80,48 @@ def render(data, env, missing):
     return PLACEHOLDER.sub(sub, data.replace(b"\r\n", b"\n"))
 
 
+def ssh(host, user, remote, data):
+    r = subprocess.run([SSH, "-o", "BatchMode=yes", f"{user}@{host}", remote], input=data, capture_output=True)
+    if r.returncode:
+        sys.exit(f"ssh {user}@{host} failed: {r.stderr.decode(errors='replace').strip()}")
+    return r.stdout.decode().strip()
+
+
+def tar_bytes(entries):
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w") as tar:
+        for name, data, mode in entries:
+            info = tarfile.TarInfo(name)
+            info.size, info.mode, info.mtime = len(data), mode, time.time()
+            tar.addfile(info, io.BytesIO(data))
+    return buf.getvalue()
+
+
+def apply(host, user, items):
+    home = f"/home/{user}/"
+    mode = lambda exe: 0o755 if exe else 0o644
+    user_files = [(r.removeprefix(home), d, mode(e)) for r, d, e in items if r.startswith(home)]
+    root_files = [(r, d, mode(e)) for r, d, e in items if not r.startswith(home)]
+    if user_files:
+        ssh(host, user, f"tar -xpf - -C {home}", tar_bytes(user_files))
+        for name, _, _ in user_files:
+            print(f"applied  {home}{name}")
+    if root_files:
+        entries = [(f"f{i}", d, m) for i, (_, d, m) in enumerate(root_files)]
+        script = ["#!/bin/sh", "set -e", 'cd "$(dirname "$0")"']
+        script += [f"install -Dm{m:o} f{i} {shlex.quote(r)}" for i, (r, _, m) in enumerate(root_files)]
+        script.append('rm -r "$(pwd)"')
+        entries.append(("apply.sh", ("\n".join(script) + "\n").encode(), 0o755))
+        stage = ssh(host, user, 'd=$(mktemp -d /tmp/stage-deploy.XXXXXX) && tar -xf - -C "$d" && echo "$d"', tar_bytes(entries))
+        for r, _, _ in root_files:
+            print(f"staged   {r}")
+        print(f"実機で実行: sudo sh {stage}/apply.sh")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("-s", "--stat", action="store_true", help="差分の本文を出さず一覧のみ")
+    ap.add_argument("--apply", action="store_true", help="差分のあるファイルを配置 (rootfs は sudo 用のスクリプトを置く)")
     ap.add_argument("filters", nargs="*", help="パスの部分一致で対象を絞る")
     args = ap.parse_args()
 
@@ -99,17 +139,20 @@ def main():
 
     counts = {"OK": 0, "DIFF": 0, "MISSING": 0, "NOREAD": 0}
     missing_keys = set()
+    pending = {}
     for user, items in groups.items():
         files, errors = fetch(host, user, [r for _, r, _ in items])
         for path, remote, exe in items:
+            expected = render((ROOT / path).read_bytes(), env, missing_keys)
             if remote not in files:
                 err = errors.get(remote, "not found")
                 status = "NOREAD" if "Permission denied" in err else "MISSING"
                 counts[status] += 1
                 print(f"{status:8} {remote}  ({err})")
+                if status == "MISSING":
+                    pending.setdefault(user, []).append((remote, expected, exe))
                 continue
             actual, actual_exe = files[remote]
-            expected = render((ROOT / path).read_bytes(), env, missing_keys)
             notes = []
             if actual != expected:
                 notes.append("content")
@@ -120,6 +163,7 @@ def main():
                 counts["OK"] += 1
                 continue
             counts["DIFF"] += 1
+            pending.setdefault(user, []).append((remote, expected, exe))
             print(f"DIFF     {remote}  [{', '.join(notes)}]")
             if not args.stat and actual != expected:
                 diff = difflib.unified_diff(
@@ -133,6 +177,11 @@ def main():
     if missing_keys:
         print(f"未設定のプレースホルダ: {', '.join(sorted(missing_keys))}", file=sys.stderr)
     print(" ".join(f"{k}={v}" for k, v in counts.items()))
+    if args.apply and pending:
+        if missing_keys:
+            sys.exit("未設定のプレースホルダがあるため配置しない")
+        for user, items in pending.items():
+            apply(host, user, items)
     sys.exit(1 if counts["DIFF"] or counts["MISSING"] else 0)
 
 

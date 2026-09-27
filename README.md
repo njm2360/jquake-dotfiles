@@ -10,16 +10,19 @@ packages.txt     pacman -Qqe
 rootfs/          / に配置
 home/owner/      ~owner に配置
 home/eqwatch/    ~eqwatch に配置
-deploy-diff.py   実機との差分 (uv run deploy-diff.py [-s] [filter...])
+deploy-diff.py   実機との差分と配置 (uv run deploy-diff.py [-s] [--apply] [filter...])
 ```
 
 ### 置換が必要なもの
+
+`deploy-diff.py --apply` が `.env` の値で置換して配置する。未設定のプレースホルダがあると配置しない
 
 - `rootfs/boot/loader/entries/*.conf`: `<LUKS_PARTITION_UUID>`
 - `rootfs/etc/fstab`: `<ESP_UUID>`
 - `rootfs/etc/systemd/network/30-vlan200.network`: IP / GW / DNS
 - `rootfs/etc/nftables.conf`, `rootfs/etc/zabbix/zabbix_agentd.local.conf`: 監視サーバーのアドレス
-- `*.example` → 拡張子を外して配置
+- `home/eqwatch/.config/JQuake/Settings.properties`: 緯度経度
+- `*.example` → 拡張子を外して手で配置(システム手順の chmod より前)
   - `/etc/msmtprc`, `/etc/default/health-report`
   - `~/.config/jquake.env`, `~/.config/speaker-check.env`, `~/.config/dtv.env`
 
@@ -27,10 +30,12 @@ deploy-diff.py   実機との差分 (uv run deploy-diff.py [-s] [filter...])
 
 ### システム (owner)
 
+構築は RW モードで行い、最後に OverlayFS へ切り替える(`mkinitcpio -P` 以降、既定エントリは OverlayFS で変更が消える)
+
 ```sh
-cp -r home/owner/. ~/
 sudo pacman -S --needed - < packages.txt
-sudo cp -r rootfs/. /
+uv run deploy-diff.py --apply           # 管理 PC で実行し、表示された apply.sh を sudo で実行
+sudo bootctl set-default arch-rw.conf
 sudo chmod 600 /etc/default/health-report
 sudo chown root:users /etc/msmtprc && sudo chmod 640 /etc/msmtprc
 sudo locale-gen
@@ -41,10 +46,11 @@ sudo systemctl enable systemd-networkd systemd-resolved systemd-timesyncd system
   fstrim.timer health-report.timer zabbix-agent prometheus-node-exporter
 ```
 
+構築が終わったら `sudo bootctl set-default arch.conf` で OverlayFS に切り替える
+
 ### eqwatch
 
 ```sh
-cp -r home/eqwatch/. ~/
 systemctl --user daemon-reload
 systemctl --user enable jquake x0vncserver jihou.timer speaker-check.timer
 vncpasswd
