@@ -44,6 +44,9 @@ sudo groupadd -r autologin && sudo gpasswd -a eqwatch autologin
 sudo ln -s /etc/apparmor.d/firefox /etc/apparmor.d/disable/firefox
 sudo systemctl enable systemd-networkd systemd-resolved systemd-timesyncd systemd-boot-update sshd nftables lightdm apparmor syslog-ng@default netconsole \
   fstrim.timer health-report.timer zabbix-agent
+sudo systemctl disable systemd-network-generator
+sudo systemctl mask archlinux-keyring-wkd-sync.timer
+sudo systemctl --global disable p11-kit-server.socket
 ```
 
 構築が終わったら `sudo bootctl set-default arch.conf` で OverlayFS に切り替える
