@@ -94,7 +94,7 @@ sudo clevis luks bind -d /dev/disk/by-uuid/<LUKS_PARTITION_UUID> tpm2 '{"pcr_ban
 - タイマーは `Persistent=false`(タイマー状態が再起動で消えるため)
 
 ```sh
-sudo bootctl set-oneshot arch-rw.conf && sudo reboot   # RW モードで起動 (owner の alias: rwboot)
+sudo bootctl set-oneshot arch-rw.conf && sudo reboot   # RW モードで起動
 df -h /mnt/rootfs.upper                                # 上層使用量
 find /mnt/rootfs.upper/upper -type f | sort            # 上層に書かれたファイル
 ```

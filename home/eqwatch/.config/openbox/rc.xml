@@ -126,7 +126,6 @@
         <command>xset dpms force off</command>
       </action>
     </keybind>
-    <!-- TV (dtv.sh) -->
     <keybind key="C-1">
       <action name="Execute">
         <command>bash ~/dtv.sh 1</command>
