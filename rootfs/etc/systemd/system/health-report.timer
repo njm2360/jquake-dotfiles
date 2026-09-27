@@ -1,0 +1,12 @@
+[Unit]
+Description=Weekly health report
+
+[Timer]
+OnCalendar=Mon *-*-* 09:00:00
+AccuracySec=1h
+# Persistent=true にしない: /var/lib/systemd/timers は overlay の tmpfs 上にあり
+# 再起動で消えるため、毎回「実行漏れ」と誤判定されて起動のたびに送信されてしまう
+Persistent=false
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,14 @@
+defaults
+auth           on
+tls            on
+tls_trust_file /etc/ssl/certs/ca-bundle.crt
+logfile        ~/.msmtp.log
+
+account ses
+host email-smtp.<REGION>.amazonaws.com
+port 587
+from <FROM_ADDRESS>
+user <SES_SMTP_USER>
+password <SES_SMTP_PASSWORD>
+
+account default : ses
