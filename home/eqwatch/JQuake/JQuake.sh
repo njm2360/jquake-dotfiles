@@ -53,13 +53,17 @@ function dmdata_monitoring() {
       if [ -n "$ALERT_EMAIL" ]; then
         echo "Sending alert email."
 
-        BODY="Subject: 【異常】地震監視PC: DM-D.S.S接続異常
-DM-D.S.SのWebSocket接続に異常が発生しています。
+        SUBJECT="【異常】地震監視PC: DM-D.S.S接続異常"
+        MAIL=$(printf 'To: %s\nSubject: =?UTF-8?B?%s?=\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n\n%s\n\n異常発生時刻: %s\n' \
+          "$ALERT_EMAIL" \
+          "$(printf '%s' "$SUBJECT" | base64 -w0)" \
+          "DM-D.S.SのWebSocket接続に異常が発生しています。" \
+          "$(date "+%Y-%m-%d %H:%M:%S")")
 
-異常発生時刻: $(date "+%Y-%m-%d %H:%M:%S")
-"
-
-        systemd-run --user --no-block bash -c "echo -e \"$BODY\" | msmtp \"$ALERT_EMAIL\"" > /dev/null 2>&1
+        systemd-run --user --no-block --expand-environment=no \
+          --setenv=MAIL_B64="$(printf '%s\n' "$MAIL" | base64 -w0)" \
+          --setenv=ALERT_EMAIL="$ALERT_EMAIL" \
+          bash -c 'printf "%s" "$MAIL_B64" | base64 -d | msmtp "$ALERT_EMAIL"' > /dev/null 2>&1
       fi
       cleanup
     fi
