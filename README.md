@@ -8,6 +8,7 @@
 ```
 packages.txt     pacman -Qqe
 rootfs/          / に配置
+home/owner/      ~owner に配置
 home/eqwatch/    ~eqwatch に配置
 ```
 
@@ -26,6 +27,7 @@ home/eqwatch/    ~eqwatch に配置
 ### システム (owner)
 
 ```sh
+cp -r home/owner/. ~/
 sudo pacman -S --needed - < packages.txt
 sudo cp -r rootfs/. /
 sudo chmod 600 /etc/default/health-report
