@@ -85,12 +85,13 @@ sudo clevis luks bind -d /dev/disk/by-uuid/<LUKS_PARTITION_UUID> tpm2 '{"pcr_ban
 
 ```sh
 sudo clevis luks list -d /dev/disk/by-uuid/<LUKS_PARTITION_UUID>
-sudo clevis luks unbind -d /dev/disk/by-uuid/<LUKS_PARTITION_UUID> -s 1
+sudo clevis luks unbind -d /dev/disk/by-uuid/<LUKS_PARTITION_UUID> -s <SLOT>   # list で確認した番号
 sudo clevis luks bind -d /dev/disk/by-uuid/<LUKS_PARTITION_UUID> tpm2 '{"pcr_bank":"sha256","pcr_ids":"0,2,3,5,6,7"}'
 ```
 
 - PCR確認: `systemd-analyze pcrs`
 - カーネル更新で PCR4/9、UEFI設定変更で PCR1 が変わるので除外
+- `loader.conf` は systemd-boot が PCR5 に測定するので、変更したら再バインド(コメントのみでも)
 
 ### OverlayFS
 
