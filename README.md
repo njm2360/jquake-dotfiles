@@ -20,7 +20,7 @@ deploy-diff.py   実機との差分と配置 (uv run deploy-diff.py [-s] [--appl
 - `rootfs/boot/loader/entries/*.conf`: `<LUKS_PARTITION_UUID>`
 - `rootfs/etc/fstab`: `<ESP_UUID>`
 - `rootfs/etc/systemd/network/30-vlan200.network`: IP / GW / DNS
-- `rootfs/etc/nftables.conf`, `rootfs/etc/zabbix/zabbix_agentd.local.conf`: 監視サーバーのアドレス
+- `rootfs/etc/nftables.conf`, `rootfs/etc/zabbix/zabbix_agentd.local.conf`, `rootfs/etc/syslog-ng/syslog-ng.conf`, `rootfs/usr/local/bin/netconsole-setup`: 監視サーバーのアドレス
 - `home/eqwatch/.config/JQuake/Settings.properties`: 緯度経度
 - `*.example` → 拡張子を外して手で配置(システム手順の chmod より前)
   - `/etc/msmtprc`, `/etc/default/health-report`
@@ -42,7 +42,7 @@ sudo locale-gen
 sudo mkinitcpio -P
 sudo groupadd -r autologin && sudo gpasswd -a eqwatch autologin
 sudo ln -s /etc/apparmor.d/firefox /etc/apparmor.d/disable/firefox
-sudo systemctl enable systemd-networkd systemd-resolved systemd-timesyncd systemd-boot-update sshd nftables lightdm apparmor \
+sudo systemctl enable systemd-networkd systemd-resolved systemd-timesyncd systemd-boot-update sshd nftables lightdm apparmor syslog-ng@default netconsole \
   fstrim.timer health-report.timer zabbix-agent prometheus-node-exporter
 ```
 
@@ -113,6 +113,11 @@ find /mnt/rootfs.upper/upper -type f | sort            # 上層に書かれた�
 - AppArmor の deny はログに出ない。確認は `aa-exec -p firefox-eqwatch -- cat ~/.config/jquake.env`
 - `/usr/local/bin/firefox` を通さないと `firefox.slice` に入らず、Firefox の OOM が `vm.panic_on_oom=1` でマシンごと落とす
 - パッケージの `firefox.desktop` は絶対パスで起動するので `~/.local/share/applications` で上書き(JQuake のリンク経由)
+
+### Graylog
+
+- netconsole は送信元が IP になるので、Graylog のストリームルールは `source` のホスト名と IP の両方で拾う
+- netconsole はコンソールの loglevel に従う。ERR 以上を送るため `sysctl.d` で `kernel.printk` を上書き
 
 ### その他
 

@@ -1,0 +1,19 @@
+#!/bin/sh
+set -e
+dev=enp1s0.200
+t=/sys/kernel/config/netconsole/graylog
+
+# 宛先は別セグメントなのでゲートウェイの MAC を使う
+gw=$(ip -4 route show default dev "$dev" | awk '{print $3; exit}')
+ping -c1 -W2 "$gw" >/dev/null
+mac=$(ip neigh show "$gw" dev "$dev" | awk '{for (i = 1; i < NF; i++) if ($i == "lladdr") { print $(i + 1); exit }}')
+[ -n "$mac" ]
+
+modprobe netconsole
+mkdir -p "$t"
+[ "$(cat "$t/enabled")" = 0 ] || echo 0 > "$t/enabled"
+echo "$dev" > "$t/dev_name"
+echo "<GRAYLOG_SERVER>" > "$t/remote_ip"
+echo 5555 > "$t/remote_port"
+echo "$mac" > "$t/remote_mac"
+echo 1 > "$t/enabled"
