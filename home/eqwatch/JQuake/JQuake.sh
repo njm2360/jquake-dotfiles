@@ -7,11 +7,16 @@ MONITOR_PID=""
 
 BASE_URL="https://api.dmdata.jp/v2"
 
+# API キーがプロセス一覧に出ないよう stdin から渡す
+function dmdata_curl() {
+  curl -fsSL --connect-timeout 5 --max-time 10 -K - "$@" <<<"user = \"${API_KEY}:\""
+}
+
 # DM-D.S.S WebSocket cleanup
 function dmdata_cleanup() {
   echo "Checking DM-D.S.S WebSocket."
 
-  response=$(curl -fsSL --connect-timeout 5 --max-time 10 -H "$AUTH_HEADER" "$BASE_URL/socket?status=open")
+  response=$(dmdata_curl "$BASE_URL/socket?status=open")
   if [ $? -ne 0 ]; then
     echo "Failed to check socket."
     return
@@ -20,7 +25,7 @@ function dmdata_cleanup() {
   socket_ids=$(echo "$response" | jq -r '.items[].id')
 
   for id in $socket_ids; do
-    curl -fsSL --connect-timeout 5 --max-time 10 -X DELETE -H "$AUTH_HEADER" "$BASE_URL/socket/$id"
+    dmdata_curl -X DELETE "$BASE_URL/socket/$id"
 
     if [ $? -ne 0 ]; then
       echo "Failed to close socket ID: $id"
@@ -42,7 +47,7 @@ function dmdata_monitoring() {
       sleep 60
     fi
 
-    response=$(curl -fsSL --connect-timeout 5 --max-time 10 -H "$AUTH_HEADER" "$BASE_URL/socket?status=open")
+    response=$(dmdata_curl "$BASE_URL/socket?status=open")
     if [ $? -ne 0 ]; then
       continue
     fi
@@ -96,7 +101,6 @@ if [ -f ~/.config/jquake.env ]; then
 fi
 
 if [ -n "$API_KEY" ]; then
-  AUTH_HEADER="Authorization: Basic $(echo -n "${API_KEY}:" | base64)"
   dmdata_cleanup
 fi
 
