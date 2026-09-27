@@ -1,12 +1,14 @@
 [Unit]
 Description=Remote desktop service (VNC)
+After=eqwatch-session.target
+PartOf=eqwatch-session.target
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-ExecStartPre=/bin/sh -c 'while ! pgrep -U "$USER" openbox; do sleep 2; done'
-ExecStart=/usr/bin/x0vncserver -display :0 -rfbport 5900 -rfbauth %E/tigervnc/passwd
+ExecStart=/usr/bin/x0vncserver -display $DISPLAY -rfbport 5900 -rfbauth %E/tigervnc/passwd
 Restart=always
+RestartSec=5
 
 [Install]
-WantedBy=default.target
-
+WantedBy=eqwatch-session.target

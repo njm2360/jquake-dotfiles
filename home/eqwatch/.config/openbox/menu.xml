@@ -32,11 +32,6 @@
     </menu>
     <separator/>
     <menu id="30" label="OpenBox">
-      <item label="OpenBox Settings">
-        <action name="Execute">
-          <command>obconf</command>
-        </action>
-      </item>
       <item label="Reconfigure">
         <action name="Reconfigure"/>
       </item>

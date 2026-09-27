@@ -3,9 +3,5 @@ Description=Jihou Service
 
 [Service]
 WorkingDirectory=%h/jihou
-ExecStart=mpv --quiet sound.wav --volume=100
+ExecStart=mpv --quiet --no-video sound.wav --volume=70
 Type=oneshot
-
-[Install]
-WantedBy=default.target
-

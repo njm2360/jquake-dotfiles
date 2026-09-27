@@ -11,7 +11,7 @@ BASE_URL="https://api.dmdata.jp/v2"
 function dmdata_cleanup() {
   echo "Checking DM-D.S.S WebSocket."
 
-  response=$(curl -fsSL -H "$AUTH_HEADER" "$BASE_URL/socket?status=open")
+  response=$(curl -fsSL --connect-timeout 5 --max-time 10 -H "$AUTH_HEADER" "$BASE_URL/socket?status=open")
   if [ $? -ne 0 ]; then
     echo "Failed to check socket."
     return
@@ -20,7 +20,7 @@ function dmdata_cleanup() {
   socket_ids=$(echo "$response" | jq -r '.items[].id')
 
   for id in $socket_ids; do
-    curl -fsSL -X DELETE -H "$AUTH_HEADER" "$BASE_URL/socket/$id"
+    curl -fsSL --connect-timeout 5 --max-time 10 -X DELETE -H "$AUTH_HEADER" "$BASE_URL/socket/$id"
 
     if [ $? -ne 0 ]; then
       echo "Failed to close socket ID: $id"
@@ -42,7 +42,7 @@ function dmdata_monitoring() {
       sleep 60
     fi
 
-    response=$(curl -fsSL -H "$AUTH_HEADER" "$BASE_URL/socket?status=open")
+    response=$(curl -fsSL --connect-timeout 5 --max-time 10 -H "$AUTH_HEADER" "$BASE_URL/socket?status=open")
     if [ $? -ne 0 ]; then
       continue
     fi
@@ -98,7 +98,7 @@ fi
 
 echo "Launching JQuake."
 
-java -XX:+DisableExplicitGC -XX:+ExitOnOutOfMemoryError -XX:+UseZGC -XX:+AlwaysPreTouch -Xmx1G -Xms1G -Djava.net.preferIPv4Stack=true -Dawt.useSystemAAFontSettings=gasp -jar JQuake.jar > /dev/null &
+java -XX:+DisableExplicitGC -XX:+ExitOnOutOfMemoryError -XX:+UseZGC -XX:+AlwaysPreTouch -Xmx2G -Xms2G -Djava.net.preferIPv4Stack=true -Dawt.useSystemAAFontSettings=gasp -jar JQuake.jar > /dev/null &
 JAVA_PID=$!
 
 if [ -n "$API_KEY" ]; then
