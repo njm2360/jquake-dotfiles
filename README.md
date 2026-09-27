@@ -49,6 +49,23 @@ vncpasswd
 
 別途配置: `JQuake.jar`, `JQuake_lib/`, `sounds/`, `~/jihou/sound.wav`, `~/jihou/boot.wav`
 
+### Secure Boot (sbctl)
+
+UEFI で Setup Mode にしてから
+
+```sh
+sudo sbctl create-keys
+sudo sbctl enroll-keys -m
+sudo sbctl sign -s /boot/EFI/BOOT/BOOTX64.EFI
+sudo sbctl sign -s /boot/EFI/systemd/systemd-bootx64.efi
+sudo sbctl sign -s /boot/vmlinuz-linux-lts
+sudo sbctl sign -s -o /usr/lib/systemd/boot/efi/systemd-bootx64.efi.signed /usr/lib/systemd/boot/efi/systemd-bootx64.efi
+sudo sbctl verify
+```
+
+- `.signed` を登録しないと systemd-boot-update が署名なしの systemd-boot で ESP を上書きする
+- Clevis のバインドは Secure Boot 設定後(PCR7 が変わる)
+
 ### LUKS / Clevis
 
 ```sh
