@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+build() {
+    add_module overlay
+    add_module ext4
+    add_runscript
+}
+
+help() {
+    cat <<HELPEOF
+Mount root as overlayfs (lower=ro ext4, upper=tmpfs).
+
+Kernel parameters:
+  overlayroot=0           Disable overlay (recovery mode, mounts root rw normally)
+  overlayroot_size=<size> tmpfs size limit for upper layer (default: 1G)
+                          Accepts any value mount(8) accepts (e.g. 512M, 2G)
+HELPEOF
+}
