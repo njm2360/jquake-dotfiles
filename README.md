@@ -35,7 +35,8 @@ sudo chown root:users /etc/msmtprc && sudo chmod 640 /etc/msmtprc
 sudo locale-gen
 sudo mkinitcpio -P
 sudo groupadd -r autologin && sudo gpasswd -a eqwatch autologin
-sudo systemctl enable systemd-networkd systemd-resolved systemd-timesyncd systemd-boot-update sshd nftables lightdm \
+sudo ln -s /etc/apparmor.d/firefox /etc/apparmor.d/disable/firefox
+sudo systemctl enable systemd-networkd systemd-resolved systemd-timesyncd systemd-boot-update sshd nftables lightdm apparmor \
   fstrim.timer health-report.timer zabbix-agent prometheus-node-exporter
 ```
 
@@ -97,6 +98,11 @@ sudo bootctl set-oneshot arch-rw.conf && sudo reboot   # RW モードで起動 (
 df -h /mnt/rootfs.upper                                # 上層使用量
 find /mnt/rootfs.upper/upper -type f | sort            # 上層に書かれたファイル
 ```
+
+### Firefox
+
+- 同梱の `firefox` プロファイル(unconfined)が同じパスに付くので `disable/` で無効化
+- AppArmor の deny はログに出ない。確認は `aa-exec -p firefox-eqwatch -- cat ~/JQuake/.env`
 
 ### その他
 

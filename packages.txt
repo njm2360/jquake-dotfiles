@@ -1,3 +1,4 @@
+apparmor
 base
 clevis
 efibootmgr
