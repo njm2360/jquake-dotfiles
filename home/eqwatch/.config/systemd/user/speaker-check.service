@@ -1,0 +1,8 @@
+[Unit]
+Description=Speaker output check
+After=pipewire.service wireplumber.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.config/speaker-check.env
+ExecStart=%h/.local/bin/speaker-check

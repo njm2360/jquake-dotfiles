@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+TO="${SPEAKER_CHECK_TO:?}"
+WANT="${SPEAKER_CHECK_SINK:?}"
+HOST=$(cat /etc/hostname 2>/dev/null || echo unknown)
+# 再起動で消える場所に置く。異常が続いても起動ごとに1通だけ飛ぶ。
+STATE="${XDG_RUNTIME_DIR:-/tmp}/speaker-check.state"
+
+got=$(wpctl inspect @DEFAULT_AUDIO_SINK@ 2>/dev/null |
+      sed -n 's/^ *\* node\.name = "\(.*\)"/\1/p')
+
+[ "$got" = "$WANT" ] && state=ok || state=ng
+
+[ "${1:-}" = "-n" ] && { echo "$state expected=$WANT actual=${got:-none}"; exit 0; }
+
+prev=$(cat "$STATE" 2>/dev/null || echo "")
+printf '%s\n' "$state" > "$STATE"
+[ "$state" = "$prev" ] && exit 0
+[ -z "$prev" ] && [ "$state" = ok ] && exit 0
+
+[ "$state" = ng ] && subject="[speaker] $HOST sink mismatch" \
+                  || subject="[speaker] $HOST sink ok"
+
+{
+    printf 'To: %s\n' "$TO"
+    printf 'Subject: %s\n\n' "$subject"
+    printf 'expected: %s\n' "$WANT"
+    printf 'actual:   %s\n' "${got:-none}"
+    printf 'date:     %s\n' "$(date '+%F %T %Z')"
+} | msmtp "$TO"

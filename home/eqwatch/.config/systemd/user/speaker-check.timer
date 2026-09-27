@@ -1,0 +1,11 @@
+[Unit]
+Description=Speaker output check
+
+[Timer]
+OnStartupSec=3min
+OnUnitActiveSec=1h
+AccuracySec=1min
+Persistent=false
+
+[Install]
+WantedBy=timers.target
