@@ -1,0 +1,6 @@
+[Unit]
+Description=Firefox
+
+[Slice]
+MemoryMax=2G
+CPUWeight=20

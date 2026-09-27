@@ -103,6 +103,8 @@ find /mnt/rootfs.upper/upper -type f | sort            # 上層に書かれた�
 
 - 同梱の `firefox` プロファイル(unconfined)が同じパスに付くので `disable/` で無効化
 - AppArmor の deny はログに出ない。確認は `aa-exec -p firefox-eqwatch -- cat ~/JQuake/.env`
+- `/usr/local/bin/firefox` を通さないと `firefox.slice` に入らず、Firefox の OOM が `vm.panic_on_oom=1` でマシンごと落とす
+- パッケージの `firefox.desktop` は絶対パスで起動するので `~/.local/share/applications` で上書き(JQuake のリンク経由)
 
 ### その他
 

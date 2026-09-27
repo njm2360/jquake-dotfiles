@@ -1,0 +1,5 @@
+#!/bin/sh
+if [ -S "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/bus" ]; then
+  exec systemd-run --user --scope --slice=firefox.slice --collect -q -- /usr/bin/firefox "$@"
+fi
+exec /usr/bin/firefox "$@"
