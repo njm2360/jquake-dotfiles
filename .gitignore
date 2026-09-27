@@ -1,18 +1,9 @@
-/*
-/.**
+.env
+*.env
+!*.env.example
+/rootfs/etc/msmtprc
+/rootfs/etc/default/health-report
 
-!/.bashrc
-!/.bash_logout
-!/.bash_profile
-!/.gitignore
-
-!/JQuake/
-!/JQuake/**
-
-!/.config/
-!/.config/openbox/
-!/.config/openbox/**
-!/.config/systemd/
-!/.config/systemd/**
-
-/.config/systemd/user/*.wants/
+*.jar
+*.log
+*.wav

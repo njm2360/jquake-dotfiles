@@ -1,6 +1,0 @@
-*.jar
-sounds/
-
-.env
-*.log
-SettingsPath.properties
