@@ -33,6 +33,7 @@ sudo cp -r rootfs/. /
 sudo chmod 600 /etc/default/health-report
 sudo chown root:users /etc/msmtprc && sudo chmod 640 /etc/msmtprc
 sudo locale-gen
+sudo mkinitcpio -P
 sudo groupadd -r autologin && sudo gpasswd -a eqwatch autologin
 sudo systemctl enable systemd-networkd systemd-resolved systemd-timesyncd systemd-boot-update sshd nftables lightdm \
   fstrim.timer health-report.timer zabbix-agent prometheus-node-exporter
@@ -70,7 +71,6 @@ sudo sbctl verify
 
 ```sh
 sudo clevis luks bind -d /dev/disk/by-uuid/<LUKS_PARTITION_UUID> tpm2 '{"pcr_bank":"sha256","pcr_ids":"0,2,3,5,6,7"}'
-sudo mkinitcpio -P
 ```
 
 自動解除に失敗したらパスフレーズで起動して再バインド
@@ -88,6 +88,7 @@ sudo clevis luks bind -d /dev/disk/by-uuid/<LUKS_PARTITION_UUID> tpm2 '{"pcr_ban
 
 - 通常起動は上層 tmpfs(1G)、再起動で変更は消える
 - 永続化する作業は RW モード(`overlayroot=0`)で
+- `pacman -Syu` も RW モードで。`/boot` は overlay の外なのでカーネルだけ更新されモジュールが消える
 - HOOKS: overlayroot は filesystems と fsck の間
 - タイマーは `Persistent=false`(タイマー状態が再起動で消えるため)
 
