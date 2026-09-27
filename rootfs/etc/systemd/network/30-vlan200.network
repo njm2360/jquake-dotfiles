@@ -7,3 +7,5 @@ Gateway=<GATEWAY>
 DNS=<DNS1>
 DNS=<DNS2>
 
+[IPv6AcceptRA]
+DHCPv6Client=no
