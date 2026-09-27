@@ -1,0 +1,10 @@
+[Match]
+Name=enp1s0
+
+[Network]
+VLAN=enp1s0.200
+LinkLocalAddressing=no
+IPv6AcceptRA=no
+
+[Link]
+RequiredForOnline=no
