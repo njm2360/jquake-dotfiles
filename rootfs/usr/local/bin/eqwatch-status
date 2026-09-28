@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+# JSON のキーは zabbix/eqwatch.yaml の JSONPath と対応
+set -uo pipefail
+
+OUT=""
+[ "${1:-}" = "-o" ] && OUT="${2:?出力先が未指定}"
+
+[ -r /etc/default/eqwatch-status ] && . /etc/default/eqwatch-status
+EQ_USER="${EQWATCH_USER:-eqwatch}"
+DEVICES="${EQWATCH_DEVICES:-}"
+WANT_SINK="${EQWATCH_SINK:-}"
+DMDATA_INTERVAL="${EQWATCH_DMDATA_INTERVAL:-300}"
+DMDATA_CACHE=/run/eqwatch-status.dmdata.json
+
+EQ_UID=$(id -u "$EQ_USER" 2>/dev/null || echo "")
+EQ_GID=$(id -g "$EQ_USER" 2>/dev/null || echo "")
+EQ_HOME=$(getent passwd "$EQ_USER" | cut -d: -f6)
+
+num() { [[ ${1:-} =~ ^-?[0-9]+(\.[0-9]+)?$ ]] && echo "$1" || echo null; }
+bool() { "$@" >/dev/null 2>&1 && echo 1 || echo 0; }
+usage_pct() { df --output=pcent "$1" 2>/dev/null | tail -1 | tr -dc '0-9'; }
+# runuser は毎分 PAM のログを出す
+as_eq() {
+  setpriv --reuid="$EQ_UID" --regid="$EQ_GID" --init-groups \
+    env XDG_RUNTIME_DIR="/run/user/$EQ_UID" "$@"
+}
+
+running=$(uname -r)
+installed=$(pacman -Q linux-lts 2>/dev/null | awk '{print $2}')
+reboot_required=0
+[ -n "$installed" ] && [ "$running" != "${installed}-lts" ] && reboot_required=1
+
+temp=$(for z in /sys/class/thermal/thermal_zone*; do
+         [ "$(cat "$z/type" 2>/dev/null)" = x86_pkg_temp ] && echo $(( $(cat "$z/temp") / 1000 ))
+       done | head -1)
+secure_boot=$(od -An -tu1 -j4 -N1 /sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c 2>/dev/null | tr -d ' ')
+watchdog=$(systemctl show -p RuntimeWatchdogUSec --value)
+
+overlay=$(bool mountpoint -q /mnt/rootfs.upper)
+# ext4 の / と /mnt/rootfs.lower は Linux by Zabbix agent が見る
+fs=$(for m in /mnt/rootfs.upper /boot /var/log /tmp /var/tmp; do
+       mountpoint -q "$m" 2>/dev/null || continue
+       jq -nc --arg m "$m" --argjson p "$(num "$(usage_pct "$m")")" '{mount: $m, pused: $p}'
+     done | jq -sc .)
+
+[ -n "$DEVICES" ] || DEVICES=$(lsblk -dpno NAME,TYPE | awk '$2=="disk"{printf "%s ", $1}')
+smart=$(for dev in $DEVICES; do
+          [ -b "$dev" ] || continue
+          rc=0
+          out=$(smartctl -j -H -A -i -l selftest "$dev" 2>/dev/null) || rc=$?
+          jq -c --arg dev "$dev" --argjson rc "$rc" \
+            '{dev: $dev, rc: $rc, model: .model_name, temp: .temperature.current, power_on_hours: .power_on_time.hours}' \
+            <<<"${out:-null}" 2>/dev/null || jq -nc --arg dev "$dev" --argjson rc "$rc" '{dev: $dev, rc: $rc}'
+        done | jq -sc .)
+
+jquake_state="" jquake_restarts="" jquake_rss=""
+if [ -n "$EQ_UID" ]; then
+  jquake_state=$(as_eq systemctl --user show jquake -p ActiveState --value 2>/dev/null)
+  jquake_restarts=$(as_eq systemctl --user show jquake -p NRestarts --value 2>/dev/null)
+  jquake_rss=$(ps -u "$EQ_USER" -o rss=,args= | awk '/JQuake\.jar/{print $1 * 1024; exit}')
+fi
+
+dmdata_check() {
+  local key resp now
+  now=$(date +%s)
+  key=$(sed -n 's/^API_KEY=["'\'']\{0,1\}\([^"'\'']*\).*/\1/p' "$EQ_HOME/.config/jquake.env" 2>/dev/null)
+  if [ -z "$key" ]; then
+    jq -nc --argjson t "$now" '{configured: 0, checked: $t}'
+    return
+  fi
+  # API キーがプロセス一覧に出ないよう stdin から渡す
+  if resp=$(curl -fsS --connect-timeout 5 --max-time 10 -K - "https://api.dmdata.jp/v2/socket?status=open" <<<"user = \"${key}:\"" 2>/dev/null) &&
+     jq -ce --argjson t "$now" \
+       '{configured: 1, api_ok: 1, checked: $t, sockets: (.items | length), apps: (.items | map(.appName // "") | join(","))}' \
+       <<<"$resp"; then
+    :
+  else
+    jq -nc --argjson t "$now" '{configured: 1, api_ok: 0, checked: $t}'
+  fi
+}
+if (( $(stat -c %Y "$DMDATA_CACHE" 2>/dev/null || echo 0) <= $(date +%s) - DMDATA_INTERVAL )); then
+  dmdata_check > "$DMDATA_CACHE.tmp" && mv -f "$DMDATA_CACHE.tmp" "$DMDATA_CACHE"
+fi
+dmdata=$(cat "$DMDATA_CACHE" 2>/dev/null || echo null)
+
+failed_units=$( {
+  systemctl --failed --no-legend --plain | awk '{print $1}'
+  [ -n "$EQ_UID" ] && as_eq systemctl --user --failed --no-legend --plain 2>/dev/null | awk '{print "(user) " $1}'
+} | sed '/^$/d' | paste -sd, -)
+oom=$(journalctl -k -b -q --no-pager 2>/dev/null | grep -ci 'out of memory')
+
+dns_ok=$(bool resolvectl query dmdata.jp)
+ntp_synced=$(bool test "$(timedatectl show -p NTPSynchronized --value)" = yes)
+
+sink="" vol=""
+if [ -n "$EQ_UID" ]; then
+  sink=$(as_eq wpctl inspect @DEFAULT_AUDIO_SINK@ 2>/dev/null | sed -n 's/^ *\* node\.name = "\(.*\)"/\1/p')
+  vol=$(as_eq wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null)   # "Volume: 0.70 [MUTED]"
+fi
+sink_ok=null
+[ -n "$WANT_SINK" ] && { [ "$sink" = "$WANT_SINK" ] && sink_ok=1 || sink_ok=0; }
+muted=null
+[ -n "$vol" ] && { [[ $vol == *MUTED* ]] && muted=1 || muted=0; }
+
+json=$(jq -nc \
+  --argjson time "$(date +%s)" \
+  --arg running "$running" --arg installed "$installed" --argjson reboot_required "$reboot_required" \
+  --argjson temp "$(num "$temp")" --argjson secure_boot "$(num "$secure_boot")" --arg watchdog "$watchdog" \
+  --argjson overlay "$overlay" --argjson fs "$fs" --argjson smart "$smart" \
+  --arg jquake_state "$jquake_state" --argjson jquake_restarts "$(num "$jquake_restarts")" \
+  --argjson jquake_rss "$(num "$jquake_rss")" \
+  --argjson dmdata "$dmdata" \
+  --arg failed_units "$failed_units" --argjson oom "$(num "$oom")" \
+  --argjson dns_ok "$dns_ok" --argjson ntp_synced "$ntp_synced" \
+  --arg sink "$sink" --argjson sink_ok "$sink_ok" --argjson muted "$muted" \
+  --argjson volume "$(num "$(awk '{print $2}' <<<"$vol")")" \
+  '{
+    time: $time,
+    kernel: {running: $running, installed: $installed, reboot_required: $reboot_required},
+    cpu_temp: $temp,
+    secure_boot: $secure_boot,
+    watchdog: $watchdog,
+    overlay: $overlay,
+    fs: $fs,
+    smart: $smart,
+    jquake: {state: $jquake_state, active: (if $jquake_state == "active" then 1 else 0 end),
+             nrestarts: $jquake_restarts, rss_bytes: $jquake_rss},
+    dmdata: $dmdata,
+    systemd: {failed_units: $failed_units},
+    oom: $oom,
+    dns_ok: $dns_ok,
+    ntp_synced: $ntp_synced,
+    audio: {sink: $sink, sink_ok: $sink_ok, muted: $muted, volume: $volume}
+  }
+  # テンプレート側は欠けたキーを DISCARD_VALUE で捨てる
+  | walk(if type == "object" then with_entries(select(.value != null)) else . end)')
+[ -n "$json" ] || exit 1
+
+if [ -z "$OUT" ]; then
+  jq . <<<"$json"
+  exit 0
+fi
+
+tmp=$(mktemp "$OUT.XXXXXX") || exit 1
+if ! { printf '%s\n' "$json" > "$tmp" && chmod 644 "$tmp" && mv -f "$tmp" "$OUT"; }; then
+  rm -f "$tmp"
+  exit 1
+fi

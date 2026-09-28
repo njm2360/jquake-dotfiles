@@ -16,7 +16,6 @@ linux-firmware-intel
 linux-lts
 luksmeta
 mpv
-msmtp
 noto-fonts
 openbox
 openssh

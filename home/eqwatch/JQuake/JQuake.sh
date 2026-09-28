@@ -55,21 +55,7 @@ function dmdata_monitoring() {
     item_count=$(echo "$response" | jq '.items | length')
 
     if [ "$item_count" -eq 0 ]; then
-      if [ -n "$ALERT_EMAIL" ]; then
-        echo "Sending alert email."
-
-        SUBJECT="【異常】地震監視PC: DM-D.S.S接続異常"
-        MAIL=$(printf 'To: %s\nSubject: =?UTF-8?B?%s?=\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n\n%s\n\n異常発生時刻: %s\n' \
-          "$ALERT_EMAIL" \
-          "$(printf '%s' "$SUBJECT" | base64 -w0)" \
-          "DM-D.S.SのWebSocket接続に異常が発生しています。" \
-          "$(date "+%Y-%m-%d %H:%M:%S")")
-
-        systemd-run --user --no-block --expand-environment=no \
-          --setenv=MAIL_B64="$(printf '%s\n' "$MAIL" | base64 -w0)" \
-          --setenv=ALERT_EMAIL="$ALERT_EMAIL" \
-          bash -c 'printf "%s" "$MAIL_B64" | base64 -d | msmtp "$ALERT_EMAIL"' > /dev/null 2>&1
-      fi
+      echo "No DM-D.S.S WebSocket, restarting."
       cleanup
     fi
   done

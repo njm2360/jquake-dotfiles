@@ -22,7 +22,6 @@ profile firefox-eqwatch /usr/lib/firefox/firefox flags=(attach_disconnected) {
   deny @{HOME}/.config/*.env rwlkmx,
   deny @{HOME}/.config/JQuake/** rwlkmx,
   deny @{HOME}/.config/tigervnc/** rwlkmx,
-  deny /etc/msmtprc rwlkmx,
 
   # ~/.cache を塞ぐとプロファイルを開けない
   deny @{HOME}/* w,

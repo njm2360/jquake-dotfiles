@@ -1,8 +1,6 @@
 .env
 *.env
 !*.env.example
-/rootfs/etc/msmtprc
-/rootfs/etc/default/health-report
 
 *.jar
 *.log

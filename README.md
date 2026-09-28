@@ -11,6 +11,7 @@ rootfs/          / に配置
 home/owner/      ~owner に配置
 home/eqwatch/    ~eqwatch に配置
 deploy-diff.py   実機との差分と配置 (uv run deploy-diff.py [-s] [--apply] [filter...])
+zabbix/          Zabbix テンプレート (配置対象外)
 ```
 
 ### 置換が必要なもの
@@ -23,8 +24,7 @@ deploy-diff.py   実機との差分と配置 (uv run deploy-diff.py [-s] [--appl
 - `rootfs/etc/nftables.conf`, `rootfs/etc/zabbix/zabbix_agentd.local.conf`, `rootfs/etc/syslog-ng/syslog-ng.conf`, `rootfs/usr/local/bin/netconsole-setup`: 監視サーバーのアドレス
 - `home/eqwatch/.config/JQuake/Settings.properties`: 緯度経度
 - `*.example` → 拡張子を外して手で配置(システム手順の chmod より前)
-  - `/etc/msmtprc`, `/etc/default/health-report`
-  - `~/.config/jquake.env`, `~/.config/speaker-check.env`, `~/.config/dtv.env`
+  - `~/.config/jquake.env`, `~/.config/dtv.env`
 
 パッケージ標準の設定ファイルは触らずドロップインで上書き。`locale.gen`, `nftables.conf` のみ丸ごと。
 
@@ -36,14 +36,12 @@ deploy-diff.py   実機との差分と配置 (uv run deploy-diff.py [-s] [--appl
 sudo pacman -S --needed - < packages.txt
 uv run deploy-diff.py --apply           # 管理 PC で実行し、表示された apply.sh を sudo で実行
 sudo bootctl set-default arch-rw.conf
-sudo chmod 600 /etc/default/health-report
-sudo chown root:users /etc/msmtprc && sudo chmod 640 /etc/msmtprc
 sudo locale-gen
 sudo mkinitcpio -P
 sudo groupadd -r autologin && sudo gpasswd -a eqwatch autologin
 sudo ln -s /etc/apparmor.d/firefox /etc/apparmor.d/disable/firefox
 sudo systemctl enable systemd-networkd systemd-resolved systemd-timesyncd systemd-boot-update sshd nftables lightdm apparmor syslog-ng@default netconsole \
-  fstrim.timer health-report.timer zabbix-agent
+  fstrim.timer eqwatch-status.timer smart-selftest.timer zabbix-agent
 sudo systemctl disable systemd-network-generator
 sudo systemctl mask archlinux-keyring-wkd-sync.timer
 sudo systemctl --global disable p11-kit-server.socket
@@ -55,7 +53,7 @@ sudo systemctl --global disable p11-kit-server.socket
 
 ```sh
 systemctl --user daemon-reload
-systemctl --user enable jquake x0vncserver jihou.timer speaker-check.timer
+systemctl --user enable jquake x0vncserver jihou.timer
 vncpasswd
 ```
 
@@ -121,6 +119,13 @@ find /mnt/rootfs.upper/upper -type f | sort            # 上層に書かれた�
 
 - netconsole は送信元が IP になるので、Graylog のストリームルールは `source` のホスト名と IP の両方で拾う
 - netconsole はコンソールの loglevel に従う。ERR 以上を送るため `sysctl.d` で `kernel.printk` を上書き
+
+### Zabbix
+
+- `zabbix/eqwatch.yaml` をインポートし、`Linux by Zabbix agent` と一緒にホストへリンク
+- 通知は Zabbix サーバーのメディアタイプで設定
+- しきい値はマクロ `{$EQWATCH.*}`、音声出力先などは `/etc/default/eqwatch-status`
+- 現在値: `sudo eqwatch-status`
 
 ### その他
 

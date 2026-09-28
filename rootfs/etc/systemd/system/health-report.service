@@ -1,9 +1,0 @@
-[Unit]
-Description=Health report via email
-Wants=network-online.target
-After=network-online.target nss-lookup.target
-
-[Service]
-Type=oneshot
-EnvironmentFile=/etc/default/health-report
-ExecStart=/usr/local/bin/health-report
