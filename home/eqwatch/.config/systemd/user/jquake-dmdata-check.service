@@ -1,0 +1,10 @@
+[Unit]
+Description=Restart JQuake when DM-D.S.S is disconnected
+
+[Service]
+Type=oneshot
+Environment=PATH=%h/.local/bin:/usr/bin
+ExecStart=%h/.local/bin/jquake-dmdata-check
+LogLevelMax=notice
+# 無いと stdout も LogLevelMax で消える
+SyslogLevel=warning

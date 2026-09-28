@@ -24,11 +24,6 @@
           <execute>systemctl --user restart jquake</execute>
         </action>
       </item>
-      <item label="Manual Start">
-        <action name="Execute">
-          <execute>~/JQuake/JQuake.sh</execute>
-        </action>
-      </item>
     </menu>
     <separator/>
     <menu id="30" label="OpenBox">

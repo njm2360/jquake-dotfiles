@@ -5,8 +5,14 @@ PartOf=eqwatch-session.target
 StartLimitIntervalSec=0
 
 [Service]
+WorkingDirectory=%h/JQuake
 ExecStartPre=/usr/bin/sh -c 'until resolvectl query dmdata.jp > /dev/null 2>&1; do sleep 1; done'
-ExecStart=%h/JQuake/JQuake.sh
+ExecStartPre=-%h/.local/bin/dmdata-socket close
+ExecStart=/usr/bin/java -XX:+DisableExplicitGC -XX:+ExitOnOutOfMemoryError -XX:+UseZGC -XX:+AlwaysPreTouch \
+  -Xmx2G -Xms2G -Djava.net.preferIPv4Stack=true -Dawt.useSystemAAFontSettings=gasp -jar JQuake.jar
+StandardOutput=null
+# SIGTERM で JVM は 143 で終了する
+SuccessExitStatus=143
 Restart=always
 RestartSec=10
 

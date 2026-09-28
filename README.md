@@ -53,7 +53,7 @@ sudo systemctl --global disable p11-kit-server.socket
 
 ```sh
 systemctl --user daemon-reload
-systemctl --user enable jquake x0vncserver jihou.timer
+systemctl --user enable jquake x0vncserver jihou.timer jquake-dmdata-check.timer
 vncpasswd
 ```
 

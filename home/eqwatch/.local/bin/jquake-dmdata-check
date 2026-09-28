@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# DM-D.S.S の接続が無い JQuake を kill し、Restart=always で再起動させる
+# restart でなく kill なのは NRestarts を増やして Zabbix の再起動トリガーに載せるため
+set -uo pipefail
+
+GRACE=120       # 起動からの猶予(秒)。再起動しても直らないたびに倍にする
+MAX_GRACE=900
+ZERO_FOR=90     # JQuake 自身の再接続を待つ時間(秒)
+STATE="$XDG_RUNTIME_DIR/jquake-dmdata-check.state"
+
+now=$(date +%s)
+read -r zero_since attempts 2>/dev/null < "$STATE"
+[[ ${zero_since:-} =~ ^[0-9]+$ ]] || zero_since=0
+[[ ${attempts:-} =~ ^[0-9]+$ ]] || attempts=0
+save() { printf '%s %s\n' "$zero_since" "$attempts" > "$STATE"; }
+
+if [ "$(systemctl --user show jquake -p ActiveState --value)" != active ]; then
+  zero_since=0
+  save
+  exit 0
+fi
+since=$(systemctl --user show jquake -p ActiveEnterTimestamp --value --timestamp=unix)
+since=${since#@}
+
+# API が失敗したときは判定しない
+n=$(dmdata-socket count 2>/dev/null) || exit 0
+
+if (( n > 0 )); then
+  zero_since=0 attempts=0
+  save
+  exit 0
+fi
+
+(( zero_since )) || zero_since=$now
+grace=$GRACE
+for (( i = 0; i < attempts && grace < MAX_GRACE; i++ )); do (( grace *= 2 )); done
+(( grace > MAX_GRACE )) && grace=$MAX_GRACE
+
+if (( now - since >= grace && now - zero_since >= ZERO_FOR )); then
+  echo "DM-D.S.S の接続なし ($(( now - zero_since ))s)。JQuake を再起動 (連続 $(( attempts + 1 )) 回目)"
+  systemctl --user kill jquake.service
+  zero_since=0
+  (( attempts++ ))
+fi
+save
