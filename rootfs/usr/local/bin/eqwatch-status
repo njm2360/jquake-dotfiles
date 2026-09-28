@@ -63,7 +63,7 @@ fi
 dmdata_check() {
   local key resp now
   now=$(date +%s)
-  key=$(sed -n 's/^API_KEY=["'\'']\{0,1\}\([^"'\'']*\).*/\1/p' "$EQ_HOME/.config/jquake.env" 2>/dev/null)
+  key=$(sed -n 's/^API_KEY=["'\'']\{0,1\}\([^"'\'']*\).*/\1/p' "$EQ_HOME/.config/dmdata.env" 2>/dev/null)
   if [ -z "$key" ]; then
     jq -nc --argjson t "$now" '{configured: 0, checked: $t}'
     return

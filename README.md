@@ -24,7 +24,7 @@ zabbix/          Zabbix テンプレート (配置対象外)
 - `rootfs/etc/nftables.conf`, `rootfs/etc/zabbix/zabbix_agentd.local.conf`, `rootfs/etc/syslog-ng/syslog-ng.conf`, `rootfs/usr/local/bin/netconsole-setup`: 監視サーバーのアドレス
 - `home/eqwatch/.config/JQuake/Settings.properties`: 緯度経度
 - `*.example` → 拡張子を外して手で配置(システム手順の chmod より前)
-  - `~/.config/jquake.env`, `~/.config/dtv.env`
+  - `~/.config/dmdata.env`, `~/.config/dtv.env`
 
 パッケージ標準の設定ファイルは触らずドロップインで上書き。`locale.gen`, `nftables.conf` のみ丸ごと。
 
@@ -111,7 +111,7 @@ find /mnt/rootfs.upper/upper -type f | sort            # 上層に書かれた�
 ### Firefox
 
 - 同梱の `firefox` プロファイル(unconfined)が同じパスに付くので `disable/` で無効化
-- AppArmor の deny はログに出ない。確認は `aa-exec -p firefox-eqwatch -- cat ~/.config/jquake.env`
+- AppArmor の deny はログに出ない。確認は `aa-exec -p firefox-eqwatch -- cat ~/.config/dmdata.env`
 - `/usr/local/bin/firefox` を通さないと `firefox.slice` に入らず、Firefox の OOM が `vm.panic_on_oom=1` でマシンごと落とす
 - パッケージの `firefox.desktop` は絶対パスで起動するので `~/.local/share/applications` で上書き(JQuake のリンク経由)
 
