@@ -9,7 +9,7 @@ htop
 intel-ucode
 iperf3
 jq
-jre-openjdk
+jre25-openjdk
 libpwquality
 lightdm
 linux-firmware-intel
