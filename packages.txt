@@ -1,6 +1,7 @@
 apparmor
 base
 clevis
+dosfstools
 efibootmgr
 fastfetch
 firefox

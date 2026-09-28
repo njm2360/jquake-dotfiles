@@ -41,7 +41,7 @@ sudo mkinitcpio -P
 sudo groupadd -r autologin && sudo gpasswd -a eqwatch autologin
 sudo ln -s /etc/apparmor.d/firefox /etc/apparmor.d/disable/firefox
 sudo systemctl enable systemd-networkd systemd-resolved systemd-timesyncd systemd-boot-update sshd nftables lightdm apparmor syslog-ng@default netconsole \
-  fstrim.timer eqwatch-status.timer smart-selftest.timer zabbix-agent
+  fstrim.timer eqwatch-status.timer smart-selftest.timer zabbix-agent boot-ro
 sudo systemctl disable systemd-network-generator
 sudo systemctl mask archlinux-keyring-wkd-sync.timer
 sudo systemctl --global disable p11-kit-server.socket
@@ -99,6 +99,7 @@ sudo clevis luks bind -d /dev/disk/by-uuid/<LUKS_PARTITION_UUID> tpm2 '{"pcr_ban
 - 通常起動は上層 tmpfs(1G)、再起動で変更は消える
 - 永続化する作業は RW モード(`overlayroot=0`)で
 - `pacman -Syu` も RW モードで。`/boot` は overlay の外なのでカーネルだけ更新されモジュールが消える
+- `/boot` は OverlayFS のとき `boot-ro.service` で ro(panic で ESP が dirty になるため)
 - HOOKS: overlayroot は filesystems と fsck の間
 - タイマーは `Persistent=false`(タイマー状態が再起動で消えるため)
 

@@ -1,0 +1,16 @@
+[Unit]
+Description=Remount /boot read-only under overlayroot
+ConditionPathIsMountPoint=/mnt/rootfs.upper
+DefaultDependencies=no
+RequiresMountsFor=/boot
+After=systemd-boot-random-seed.service systemd-boot-update.service
+Before=sysinit.target shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/mount -o remount,ro /boot
+
+[Install]
+WantedBy=sysinit.target
