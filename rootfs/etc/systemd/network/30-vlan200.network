@@ -6,6 +6,5 @@ Address=<IP_ADDRESS>/24
 Gateway=<GATEWAY>
 DNS=<DNS1>
 DNS=<DNS2>
-
-[IPv6AcceptRA]
-DHCPv6Client=no
+LinkLocalAddressing=no
+IPv6AcceptRA=no
