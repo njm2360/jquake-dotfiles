@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# DM-D.S.S の接続が無い JQuake を kill し、Restart=always で再起動させる
+# DM-D.S.S の接続がない JQuake を kill し、Restart=always で再起動させる
 # restart でなく kill なのは NRestarts を増やして Zabbix の再起動トリガーに載せるため
 set -uo pipefail
 
-GRACE=120       # 起動からの猶予(秒)。再起動しても直らないたびに倍にする
+GRACE=120       # 起動からの猶予(秒)。再起動しても復旧しないたびに倍にする
 MAX_GRACE=900
 ZERO_FOR=90     # JQuake 自身の再接続を待つ時間(秒)
 STATE="$XDG_RUNTIME_DIR/jquake-dmdata-check.state"
@@ -22,7 +22,7 @@ fi
 since=$(systemctl --user show jquake -p ActiveEnterTimestamp --value --timestamp=unix)
 since=${since#@}
 
-# API が失敗したときは判定しない
+# API の呼び出しに失敗したときは判定しない
 n=$(dmdata-socket count 2>/dev/null) || exit 0
 
 if (( n > 0 )); then

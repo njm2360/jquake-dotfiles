@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# DM-D.S.S の WebSocket は JQuake の 1 本だけの前提
+# DM-D.S.S の WebSocket は JQuake の 1 本だけという前提
 set -uo pipefail
 
 case ${1:-} in

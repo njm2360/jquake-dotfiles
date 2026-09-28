@@ -6,5 +6,5 @@ After=network-online.target nss-lookup.target
 Type=oneshot
 ExecStart=/usr/local/bin/eqwatch-status -o /run/eqwatch-status.json
 LogLevelMax=notice
-# 無いと stderr も LogLevelMax で消える
+# これがないと stderr も LogLevelMax で捨てられる
 SyslogLevel=warning
