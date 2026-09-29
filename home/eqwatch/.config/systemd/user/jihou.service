@@ -1,7 +1,0 @@
-[Unit]
-Description=Jihou Service
-
-[Service]
-WorkingDirectory=%h/.local/share/jihou
-ExecStart=mpv --quiet --no-video sound.wav --volume=70
-Type=oneshot

@@ -1,8 +1,0 @@
-[Unit]
-Description=SMART short self-test
-
-[Service]
-Type=oneshot
-EnvironmentFile=/etc/default/eqwatch-status
-ExecStart=-/bin/sh -c 'for d in $$EQWATCH_DEVICES; do smartctl -t short "$$d"; done'
-StandardOutput=null
