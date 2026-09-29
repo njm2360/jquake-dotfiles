@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# DM-D.S.S の接続がない JQuake を kill し、Restart=always で再起動させる
-# restart でなく kill なのは NRestarts を増やして Zabbix の再起動トリガーに載せるため
+# DM-D.S.S の接続がない JQuake を再起動する
 set -uo pipefail
 
 GRACE=120       # 起動からの猶予(秒)。再起動しても復旧しないたびに倍にする
@@ -38,7 +37,7 @@ for (( i = 0; i < attempts && grace < MAX_GRACE; i++ )); do (( grace *= 2 )); do
 
 if (( now - since >= grace && now - zero_since >= ZERO_FOR )); then
   echo "DM-D.S.S の接続なし ($(( now - zero_since ))s)。JQuake を再起動 (連続 $(( attempts + 1 )) 回目)"
-  systemctl --user kill jquake.service
+  systemctl --user --no-block restart jquake.service
   zero_since=0
   (( attempts++ ))
 fi
