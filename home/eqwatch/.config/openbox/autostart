@@ -3,11 +3,3 @@ systemctl --user start eqwatch-session.target
 
 xset dpms 300 300 300 &
 xset s off &
-# WirePlumber がデフォルトシンクを決めるまで wpctl は失敗するので待つ
-(
-  for _ in $(seq 30); do
-    wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 2>/dev/null && break
-    sleep 1
-  done
-  mpv ~/.local/share/jihou/boot.wav
-) &
