@@ -1,138 +1,72 @@
-## 地震監視PC用設定ファイル
+## 地震監視PC用設定ファイル (記事用)
 
 <https://zenn.dev/njm2360/articles/9c755c5b0fc490>
 
-- `article`: 記事執筆時点(記事から行番号リンクあり)
-- `main`: 実機の現行設定。記事 + LUKS/Clevis, OverlayFS, nftables, 各種監視
+- `article-2609`: 記事に対応する設定。特定のハードウェアに依存するものは含まない
+- `main`: 筆者の実機設定。LUKS、OverlayFS、Zabbix など環境に依存するものを含む
 
 ```
-packages.txt     pacman -Qqe
+packages.txt     インストールするパッケージ
 rootfs/          / に配置
-home/owner/      ~owner に配置
 home/eqwatch/    ~eqwatch に配置
-deploy-diff.py   実機との差分と配置 (uv run deploy-diff.py [-s] [--apply] [filter...])
-zabbix/          Zabbix テンプレート (配置対象外)
 ```
 
-### 置換が必要なもの
+### 置き換えが必要なもの
 
-`deploy-diff.py --apply` が `.env` の値で置換して配置する。未設定のプレースホルダがあると配置しない
-
-- `rootfs/boot/loader/entries/*.conf`: `<LUKS_PARTITION_UUID>`
-- `rootfs/etc/fstab`: `<ESP_UUID>`
-- `rootfs/etc/systemd/network/30-vlan200.network`: IP / GW / DNS
-- `rootfs/etc/nftables.conf`, `rootfs/etc/zabbix/zabbix_agentd.local.conf`, `rootfs/etc/syslog-ng/syslog-ng.conf`, `rootfs/usr/local/bin/netconsole-setup`: 監視サーバーのアドレス
-- `home/eqwatch/.config/JQuake/Settings.properties`: 緯度経度
-- `*.example` → 拡張子を外して手で配置(システム手順の chmod より前)
-  - `~/.config/dmdata.env`, `~/.config/dtv.env`
-
-パッケージ標準の設定ファイルは触らずドロップインで上書き。`locale.gen`, `nftables.conf` のみ丸ごと。
+- `rootfs/boot/loader/entries/arch.conf`: `<ROOT_UUID>`
+- `rootfs/etc/systemd/network/20-wired.network`: `<MAC_ADDRESS>`、IP アドレス、ゲートウェイ、DNS
+- `rootfs/etc/hostname`, `rootfs/etc/hosts`: ホスト名
+- ファイアウォールの `192.168.0.0/24`: LAN のサブネット
+- `home/eqwatch/.config/dmdata.env.example`: 拡張子を外し、API キーを記入する(DM-D.S.S を使う場合)
 
 ### システム (owner)
 
-構築は RW モードで行い、最後に OverlayFS へ切り替える(`mkinitcpio -P` 以降、既定エントリは OverlayFS で変更が消える)
-
 ```sh
 sudo pacman -S --needed - < packages.txt
-uv run deploy-diff.py --apply           # 管理 PC で実行し、表示された apply.sh を sudo で実行
-sudo bootctl set-default arch-rw.conf
+sudo pacman -S intel-ucode   # AMD の場合は amd-ucode
 sudo locale-gen
 sudo mkinitcpio -P
+sudo ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 sudo groupadd -r autologin && sudo gpasswd -a eqwatch autologin
-sudo ln -s /etc/apparmor.d/firefox /etc/apparmor.d/disable/firefox
-sudo systemctl enable systemd-networkd systemd-resolved systemd-timesyncd systemd-boot-update sshd nftables lightdm apparmor syslog-ng@default netconsole \
-  fstrim.timer eqwatch-status.timer smart-selftest.timer zabbix-agent boot-ro
-sudo systemctl disable systemd-network-generator
-sudo systemctl mask archlinux-keyring-wkd-sync.timer
-sudo systemctl --global disable p11-kit-server.socket
+sudo systemctl enable systemd-networkd systemd-resolved systemd-timesyncd systemd-boot-update sshd lightdm ufw fstrim.timer
 ```
 
-構築が終わったら `sudo bootctl set-default arch.conf` で OverlayFS に切り替える
+- マイクロコードは mkinitcpio の `microcode` フックが initramfs に組み込むため、ブートエントリに `initrd` 行は不要
+
+### ファイアウォール
+
+SSH は LAN からの接続のみ許可する。ufw のルールは IPv6 にも適用されるため、送信元を指定しないとグローバル IPv6 アドレス宛てに外部から接続できてしまう。
+
+```sh
+sudo ufw default deny
+sudo ufw allow from 192.168.0.0/24 to any port 22 proto tcp
+sudo ufw enable
+```
 
 ### eqwatch
 
+JQuake 本体は zip を `~/JQuake/` に展開して配置する。
+
 ```sh
 systemctl --user daemon-reload
-systemctl --user enable jquake x0vncserver jihou.timer jquake-dmdata-check.timer
-vncpasswd
+systemctl --user enable jquake
+
+# DM-D.S.S を使う場合
+chmod 600 ~/.config/dmdata.env
+systemctl --user enable jquake-dmdata-check.timer
 ```
 
-別途配置: `JQuake.jar`, `JQuake_lib/`, `sounds/`, `~/.local/share/jihou/sound.wav`, `~/.local/share/jihou/boot.wav`
+- 同梱の `JQuake.sh` は使わず、`jquake.service` から java を直接起動する。JVM オプションは `jquake.service` で指定する
+- 起動前に `dmdata-socket close` で、前回から残っている WebSocket を切断する(JQuake 専用契約の同時接続数は 1)
+- `dmdata-socket` はアカウントで開いているすべての WebSocket を対象に切断・計数する。同じアカウントで他のクライアントを併用する場合は、DM-D.S.S 関連の設定を行わない
+- `jquake-dmdata-check.timer` が毎分接続数を確認し、接続数 0 の状態が続いた場合に JQuake を再起動する。起動直後は猶予を設け、再起動しても復旧しない場合は猶予を倍に延ばす
+- API キーは `~/.config/dmdata.env` から読み込み、curl には標準入力で渡す(`ps` に表示されない)
 
-### Secure Boot (sbctl)
+### カーネルパラメータ
 
-UEFI で Setup Mode にしてから
-
-```sh
-sudo sbctl create-keys
-sudo sbctl enroll-keys -m
-sudo sbctl sign -s /boot/EFI/BOOT/BOOTX64.EFI
-sudo sbctl sign -s /boot/EFI/systemd/systemd-bootx64.efi
-sudo sbctl sign -s /boot/vmlinuz-linux-lts
-sudo sbctl sign -s -o /usr/lib/systemd/boot/efi/systemd-bootx64.efi.signed /usr/lib/systemd/boot/efi/systemd-bootx64.efi
-sudo sbctl verify
-```
-
-- `.signed` を登録しないと systemd-boot-update が署名なしの systemd-boot で ESP を上書きする
-- Clevis のバインドは Secure Boot 設定後(PCR7 が変わる)
-
-### LUKS / Clevis
-
-```sh
-sudo clevis luks bind -d /dev/disk/by-uuid/<LUKS_PARTITION_UUID> tpm2 '{"pcr_bank":"sha256","pcr_ids":"0,2,3,5,6,7"}'
-```
-
-自動解除に失敗したらパスフレーズで起動して再バインド
-
-```sh
-sudo clevis luks list -d /dev/disk/by-uuid/<LUKS_PARTITION_UUID>
-sudo clevis luks unbind -d /dev/disk/by-uuid/<LUKS_PARTITION_UUID> -s <SLOT>   # list で確認した番号
-sudo clevis luks bind -d /dev/disk/by-uuid/<LUKS_PARTITION_UUID> tpm2 '{"pcr_bank":"sha256","pcr_ids":"0,2,3,5,6,7"}'
-```
-
-- PCR確認: `systemd-analyze pcrs`
-- カーネル更新で PCR4/9、UEFI設定変更で PCR1 が変わるので除外
-- `loader.conf` は systemd-boot が PCR5 に測定するので、変更したら再バインド(コメントのみでも)
-
-### OverlayFS
-
-- 通常起動は上層 tmpfs(1G)、再起動で変更は消える
-- 永続化する作業は RW モード(`overlayroot=0`)で
-- `pacman -Syu` も RW モードで。`/boot` は overlay の外なのでカーネルだけ更新されモジュールが消える
-- `/boot` は OverlayFS のとき `boot-ro.service` で ro(panic で ESP が dirty になるため)
-- HOOKS: overlayroot は filesystems と fsck の間
-- タイマーは `Persistent=false`(タイマー状態が再起動で消えるため)
-
-```sh
-sudo bootctl set-oneshot arch-rw.conf && sudo reboot   # RW モードで起動
-df -h /mnt/rootfs.upper                                # 上層使用量
-find /mnt/rootfs.upper/upper -type f | sort            # 上層に書かれたファイル
-```
+- `sysctl.d/99-local.conf` で、カーネルパニック、OOM、タスクのハング、ロックアップの発生時に自動で再起動する
 
 ### Firefox
 
-- 同梱の `firefox` プロファイル(unconfined)が同じパスに付くので `disable/` で無効化
-- AppArmor の deny はログに出ない。確認は `aa-exec -p firefox-eqwatch -- cat ~/.config/dmdata.env`
-- `/usr/local/bin/firefox` を通さないと `firefox.slice` に入らず、Firefox の OOM が `vm.panic_on_oom=1` でマシンごと落とす
-- パッケージの `firefox.desktop` は絶対パスで起動するので `~/.local/share/applications` で上書き(JQuake のリンク経由)
-
-### Graylog
-
-- netconsole は送信元が IP になるので、Graylog のストリームルールは `source` のホスト名と IP の両方で拾う
-- netconsole はコンソールの loglevel に従う。ERR 以上を送るため `sysctl.d` で `kernel.printk` を上書き
-
-### Zabbix
-
-- `zabbix/eqwatch.yaml` をインポートし、`Linux by Zabbix agent` と一緒にホストへリンク
-- 通知は Zabbix サーバーのメディアタイプで設定
-- しきい値はマクロ `{$EQWATCH.*}`、音声出力先などは `/etc/default/eqwatch-status`
-- 現在値: `sudo eqwatch-status`
-
-### その他
-
-- `99-remove-usb.rules`: 内部 USB オーディオ(0573:1573)無効化
-- DISPLAY は autostart から `eqwatch-session.target` 経由で渡す(直書きしない)
-
-```sh
-sudo reflector --country Japan --age 24 --protocol https --sort rate --save /etc/pacman.d/mirrorlist
-```
+- `/usr/local/bin/firefox` は Firefox を `firefox.slice`(メモリ上限 2G)の中で起動する。`vm.panic_on_oom=1` のため、上限がないと Firefox がメモリを使い切った際にマシン全体が再起動する
+- JQuake からリンクを開くと、パッケージ付属の `firefox.desktop` が `/usr/bin/firefox` を絶対パスで起動する。これを避けるため、`~/.local/share/applications` と `mimeapps.list` で上書きする
