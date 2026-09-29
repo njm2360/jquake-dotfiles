@@ -1,40 +1,57 @@
-## 地震監視PC用設定ファイル
+# jquake-dotfiles
 
-<https://zenn.dev/njm2360/articles/9c755c5b0fc490>
-
-- `article`: 記事執筆時点(記事から行番号リンクあり)
-- `main`: 実機の現行設定。記事 + LUKS/Clevis, OverlayFS, nftables, 各種監視
+JQuake を常時表示する地震監視 PC の設定ファイルです。Arch Linux 上で、LUKS/Clevis によるディスク暗号化、OverlayFS による読み取り専用ルート、nftables、Zabbix と Graylog による監視を構成しています。
 
 ```
-packages.txt     pacman -Qqe
+packages.txt     インストールするパッケージ (pacman -Qqe の出力)
 rootfs/          / に配置
-home/owner/      ~owner に配置
-home/eqwatch/    ~eqwatch に配置
-deploy-diff.py   実機との差分と配置 (uv run deploy-diff.py [-s] [--apply] [filter...])
+home/owner/      ~owner に配置 (管理ユーザー)
+home/eqwatch/    ~eqwatch に配置 (表示用の自動ログインユーザー)
+deploy-diff.py   実機との差分表示と配置
 zabbix/          Zabbix テンプレート (配置対象外)
 ```
 
-### 置換が必要なもの
+## 配置
 
-`deploy-diff.py --apply` が `.env` の値で置換して配置する。未設定のプレースホルダがあると配置しない
+`deploy-diff.py` は、リポジトリのファイルを `.env` の値で置換したうえで実機と比較し、`--apply` を付けると差分のあるファイルを配置します。`.env` は `.env.example` をもとに作成してください。
+
+```sh
+uv run deploy-diff.py            # 差分を表示
+uv run deploy-diff.py -s         # 差分のあるファイルの一覧だけを表示
+uv run deploy-diff.py --apply    # 差分のあるファイルを配置
+uv run deploy-diff.py jquake     # パスの一部で対象を絞る
+```
+
+ホームディレクトリのファイルはそのまま配置されます。`rootfs/` のファイルは実機の `/tmp` に置かれるので、表示された `apply.sh` を実機で `sudo` で実行してください。未設定のプレースホルダがある場合は配置しません。
+
+### 置換が必要なもの
 
 - `rootfs/boot/loader/entries/*.conf`: `<LUKS_PARTITION_UUID>`
 - `rootfs/etc/fstab`: `<ESP_UUID>`
-- `rootfs/etc/systemd/network/30-vlan200.network`: IP / GW / DNS
-- `rootfs/etc/nftables.conf`, `rootfs/etc/zabbix/zabbix_agentd.local.conf`, `rootfs/etc/syslog-ng/syslog-ng.conf`, `rootfs/usr/local/bin/netconsole-setup`: 監視サーバーのアドレス
+- `rootfs/etc/systemd/network/30-vlan200.network`: IP アドレス、ゲートウェイ、DNS
+- 監視サーバーのアドレス
+  - `rootfs/etc/nftables.conf`
+  - `rootfs/etc/zabbix/zabbix_agentd.local.conf`
+  - `rootfs/etc/syslog-ng/syslog-ng.conf`
+  - `rootfs/usr/local/bin/netconsole-setup`
 - `home/eqwatch/.config/JQuake/Settings.properties`: 緯度経度
-- `*.example` → 拡張子を外して手で配置(システム手順の chmod より前)
-  - `~/.config/dmdata.env`, `~/.config/dtv.env`
 
-パッケージ標準の設定ファイルは触らずドロップインで上書き。`locale.gen`, `nftables.conf` のみ丸ごと。
+`*.example` は配置対象外です。値を記入し、拡張子を外した名前で手で配置して、パーミッションを 600 にしてください。
+
+- `home/eqwatch/.config/dmdata.env.example` → `~/.config/dmdata.env` (DM-D.S.S の API キー)
+- `home/eqwatch/.config/dtv.env.example` → `~/.config/dtv.env`
+
+パッケージ標準の設定ファイルは書き換えず、ドロップインで上書きしています。例外は `locale.gen` と `nftables.conf` で、これらはファイルごと置き換えます。
+
+## 構築
 
 ### システム (owner)
 
-構築は RW モードで行い、最後に OverlayFS へ切り替える(`mkinitcpio -P` 以降、既定エントリは OverlayFS で変更が消える)
+構築は RW モードで行い、最後に OverlayFS へ切り替えます。`mkinitcpio -P` で overlayroot フックが組み込まれると、既定のブートエントリでは再起動で変更が消えます。
 
 ```sh
 sudo pacman -S --needed - < packages.txt
-uv run deploy-diff.py --apply           # 管理 PC で実行し、表示された apply.sh を sudo で実行
+uv run deploy-diff.py --apply    # 管理 PC で実行し、表示された apply.sh を実機で sudo で実行
 sudo bootctl set-default arch-rw.conf
 sudo locale-gen
 sudo mkinitcpio -P
@@ -47,7 +64,7 @@ sudo systemctl mask archlinux-keyring-wkd-sync.timer
 sudo systemctl --global disable p11-kit-server.socket
 ```
 
-構築が終わったら `sudo bootctl set-default arch.conf` で OverlayFS に切り替える
+構築が終わったら `sudo bootctl set-default arch.conf` で OverlayFS に切り替えます。
 
 ### eqwatch
 
@@ -57,11 +74,14 @@ systemctl --user enable jquake x0vncserver jihou.timer jquake-dmdata-check.timer
 vncpasswd
 ```
 
-別途配置: `JQuake.jar`, `JQuake_lib/`, `sounds/`, `~/.local/share/jihou/sound.wav`, `~/.local/share/jihou/boot.wav`
+次のファイルはリポジトリに含まれないので、別途配置してください。
+
+- `~/JQuake/` に `JQuake.jar`, `JQuake_lib/`, `sounds/`
+- `~/.local/share/jihou/` に `sound.wav`, `boot.wav`
 
 ### Secure Boot (sbctl)
 
-UEFI で Setup Mode にしてから
+UEFI の設定で Setup Mode にしてから実行します。
 
 ```sh
 sudo sbctl create-keys
@@ -73,8 +93,8 @@ sudo sbctl sign -s -o /usr/lib/systemd/boot/efi/systemd-bootx64.efi.signed /usr/
 sudo sbctl verify
 ```
 
-- `.signed` を登録しないと systemd-boot-update が署名なしの systemd-boot で ESP を上書きする
-- Clevis のバインドは Secure Boot 設定後(PCR7 が変わる)
+- 最後の `.signed` を登録しないと、systemd-boot-update が署名のない systemd-boot で ESP を上書きします。
+- Secure Boot を設定すると PCR7 が変わるので、Clevis のバインドはその後に行います。
 
 ### LUKS / Clevis
 
@@ -82,56 +102,59 @@ sudo sbctl verify
 sudo clevis luks bind -d /dev/disk/by-uuid/<LUKS_PARTITION_UUID> tpm2 '{"pcr_bank":"sha256","pcr_ids":"0,2,3,5,6,7"}'
 ```
 
-自動解除に失敗したらパスフレーズで起動して再バインド
+TPM による自動解除に失敗した場合は、パスフレーズで起動してバインドし直します。
 
 ```sh
 sudo clevis luks list -d /dev/disk/by-uuid/<LUKS_PARTITION_UUID>
-sudo clevis luks unbind -d /dev/disk/by-uuid/<LUKS_PARTITION_UUID> -s <SLOT>   # list で確認した番号
+sudo clevis luks unbind -d /dev/disk/by-uuid/<LUKS_PARTITION_UUID> -s <SLOT>   # list で確認したスロット番号
 sudo clevis luks bind -d /dev/disk/by-uuid/<LUKS_PARTITION_UUID> tpm2 '{"pcr_bank":"sha256","pcr_ids":"0,2,3,5,6,7"}'
 ```
 
-- PCR確認: `systemd-analyze pcrs`
-- カーネル更新で PCR4/9、UEFI設定変更で PCR1 が変わるので除外
-- `loader.conf` は systemd-boot が PCR5 に測定するので、変更したら再バインド(コメントのみでも)
+- PCR の値は `systemd-analyze pcrs` で確認できます。
+- PCR4/9 はカーネルの更新で、PCR1 は UEFI の設定変更で変わるため、バインド対象から外しています。
+- `loader.conf` は systemd-boot が PCR5 に測定します。変更した場合は、コメントだけの変更でもバインドし直してください。
+
+## 運用メモ
 
 ### OverlayFS
 
-- 通常起動は上層 tmpfs(1G)、再起動で変更は消える
-- 永続化する作業は RW モード(`overlayroot=0`)で
-- `pacman -Syu` も RW モードで。`/boot` は overlay の外なのでカーネルだけ更新されモジュールが消える
-- `/boot` は OverlayFS のとき `boot-ro.service` で ro(panic で ESP が dirty になるため)
-- HOOKS: overlayroot は filesystems と fsck の間
-- タイマーは `Persistent=false`(タイマー状態が再起動で消えるため)
+- 通常の起動では上層が tmpfs (1G) になり、変更は再起動で消えます。
+- 変更を残す作業は RW モード (`overlayroot=0`) で行います。
+- `pacman -Syu` も RW モードで行います。`/boot` は overlay の外にあるため、通常の起動で更新するとカーネルだけが新しくなり、再起動後に対応するモジュールがなくなります。
+- OverlayFS で起動しているときは、`boot-ro.service` が `/boot` を読み取り専用にします。カーネルパニックで ESP が dirty になるのを防ぐためです。
+- mkinitcpio の HOOKS では、overlayroot を filesystems と fsck の間に置いています。
+- タイマーの状態は再起動で消えるので、タイマーは `Persistent=false` にしています。
 
 ```sh
-sudo bootctl set-oneshot arch-rw.conf && sudo reboot   # RW モードで起動
-df -h /mnt/rootfs.upper                                # 上層使用量
-find /mnt/rootfs.upper/upper -type f | sort            # 上層に書かれたファイル
+sudo bootctl set-oneshot arch-rw.conf && sudo reboot   # 次回だけ RW モードで起動
+df -h /mnt/rootfs.upper                                # 上層の使用量
+find /mnt/rootfs.upper/upper -type f | sort            # 上層に書き込まれたファイル
 ```
 
 ### Firefox
 
-- 同梱の `firefox` プロファイル(unconfined)が同じパスに付くので `disable/` で無効化
-- AppArmor の deny はログに出ない。確認は `aa-exec -p firefox-eqwatch -- cat ~/.config/dmdata.env`
-- `/usr/local/bin/firefox` を通さないと `firefox.slice` に入らず、Firefox の OOM が `vm.panic_on_oom=1` でマシンごと落とす
-- パッケージの `firefox.desktop` は絶対パスで起動するので `~/.local/share/applications` で上書き(JQuake のリンク経由)
+- AppArmor パッケージに含まれる `firefox` プロファイル (unconfined) が同じ実行ファイルに適用されるため、`disable/` で無効化して `firefox-eqwatch` を使っています。
+- AppArmor で拒否されたアクセスはログに出ません。拒否されることは `aa-exec -p firefox-eqwatch -- cat ~/.config/dmdata.env` で確認できます。
+- Firefox は `/usr/local/bin/firefox` 経由で起動し、メモリ上限のある `firefox.slice` に入れています。`vm.panic_on_oom=1` なので、上限がないと Firefox のメモリ不足でマシン全体が再起動します。
+- パッケージの `firefox.desktop` は `/usr/bin/firefox` を絶対パスで起動するので、`~/.local/share/applications` で上書きしています (JQuake からリンクを開く場合)。
 
 ### Graylog
 
-- netconsole は送信元が IP になるので、Graylog のストリームルールは `source` のホスト名と IP の両方で拾う
-- netconsole はコンソールの loglevel に従う。ERR 以上を送るため `sysctl.d` で `kernel.printk` を上書き
+- netconsole のログは送信元が IP アドレスになるので、Graylog のストリームルールは `source` のホスト名と IP アドレスの両方で拾います。
+- netconsole はコンソールの loglevel に従います。ERR 以上を送るため、`sysctl.d` で `kernel.printk` を上書きしています。
 
 ### Zabbix
 
-- `zabbix/eqwatch.yaml` をインポートし、`Linux by Zabbix agent` と一緒にホストへリンク
-- 通知は Zabbix サーバーのメディアタイプで設定
-- しきい値はマクロ `{$EQWATCH.*}`、音声出力先などは `/etc/default/eqwatch-status`
-- 現在値: `sudo eqwatch-status`
+- `zabbix/eqwatch.yaml` をインポートし、`Linux by Zabbix agent` と一緒にホストへリンクします。
+- 通知は Zabbix サーバーのメディアタイプで設定します。
+- しきい値はマクロ `{$EQWATCH.*}` で、音声の出力先などは `/etc/default/eqwatch-status` で設定します。
+- 現在の値は `sudo eqwatch-status` で確認できます。
 
 ### その他
 
-- `99-remove-usb.rules`: 内部 USB オーディオ(0573:1573)無効化
-- DISPLAY は autostart から `eqwatch-session.target` 経由で渡す(直書きしない)
+- `99-remove-usb.rules` で内部の USB オーディオデバイス (0573:1573) を無効化しています。
+- `DISPLAY` はユニットに直接書かず、Openbox の autostart から `eqwatch-session.target` 経由で渡しています。
+- ミラーリストの更新:
 
 ```sh
 sudo reflector --country Japan --age 24 --protocol https --sort rate --save /etc/pacman.d/mirrorlist
