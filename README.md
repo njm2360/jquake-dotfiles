@@ -26,7 +26,7 @@ uv run deploy-diff.py jquake     # パスの一部で対象を絞る
 
 ### 置換が必要なもの
 
-- `rootfs/boot/loader/entries/*.conf`: `<LUKS_PARTITION_UUID>`
+- `rootfs/etc/kernel/cmdline`, `rootfs/etc/kernel/cmdline-rw`: `<LUKS_PARTITION_UUID>`
 - `rootfs/etc/fstab`: `<ESP_UUID>`
 - `rootfs/etc/systemd/network/30-vlan200.network`: IP アドレス、ゲートウェイ、DNS
 - 監視サーバーのアドレス
@@ -52,19 +52,19 @@ uv run deploy-diff.py jquake     # パスの一部で対象を絞る
 ```sh
 sudo pacman -S --needed - < packages.txt
 uv run deploy-diff.py --apply    # 管理 PC で実行し、表示された apply.sh を実機で sudo で実行
-sudo bootctl set-default arch-rw.conf
 sudo locale-gen
 sudo mkinitcpio -P
+sudo bootctl set-default arch-rw.efi
 sudo groupadd -r autologin && sudo gpasswd -a eqwatch autologin
 sudo ln -s /etc/apparmor.d/firefox /etc/apparmor.d/disable/firefox
 sudo systemctl enable systemd-networkd systemd-resolved systemd-timesyncd systemd-boot-update sshd nftables lightdm apparmor syslog-ng@default netconsole \
   fstrim.timer eqwatch-status.timer smart-selftest.timer zabbix-agent boot-ro
 sudo systemctl disable systemd-network-generator
-sudo systemctl mask archlinux-keyring-wkd-sync.timer
+sudo systemctl mask archlinux-keyring-wkd-sync.timer systemd-tpm2-setup-early.service systemd-pcrproduct.service systemd-pcrlogin@.service
 sudo systemctl --global disable p11-kit-server.socket
 ```
 
-構築が終わったら `sudo bootctl set-default arch.conf` で OverlayFS に切り替えます。
+構築が終わったら `sudo bootctl set-default arch.efi` で OverlayFS に切り替えます。
 
 ### eqwatch
 
@@ -94,6 +94,7 @@ sudo sbctl verify
 ```
 
 - 最後の `.signed` を登録しないと、systemd-boot-update が署名のない systemd-boot で ESP を上書きします。
+- UKI (`/boot/EFI/Linux/*.efi`) は、mkinitcpio が生成するたびに sbctl の post フックが署名します。
 - Secure Boot を設定すると PCR7 が変わるので、Clevis のバインドはその後に行います。
 
 ### LUKS / Clevis
@@ -111,8 +112,9 @@ sudo clevis luks bind -d /dev/disk/by-uuid/<LUKS_PARTITION_UUID> tpm2 '{"pcr_ban
 ```
 
 - PCR の値は `systemd-analyze pcrs` で確認できます。
-- PCR4/9 はカーネルの更新で、PCR1 は UEFI の設定変更で変わるため、バインド対象から外しています。
-- `loader.conf` は systemd-boot が PCR5 に測定します。変更した場合は、コメントだけの変更でもバインドし直してください。
+- PCR4/9/11 は UKI の更新や RW モードとの切り替えで、PCR1 は UEFI の設定変更で変わるため、バインド対象から外しています。
+- `loader.conf` は systemd-boot が PCR5 に測定します。変更した場合は、コメントだけの変更でもバインドし直してください。既定のエントリは `loader.conf` ではなく `bootctl set-default` (EFI 変数) で切り替えます。
+- UKI で起動すると、systemd は TPM の NvPCR を扱うユニットを実行します。この構成では `systemd-tpm2-setup-early`、`systemd-pcrproduct`、`systemd-pcrlogin@` が NvPCR を扱えずに失敗し (`No such file or directory`)、failed ユニットとして Zabbix に通知されるため、マスクしています。
 
 ## 運用メモ
 
@@ -120,13 +122,14 @@ sudo clevis luks bind -d /dev/disk/by-uuid/<LUKS_PARTITION_UUID> tpm2 '{"pcr_ban
 
 - 通常の起動では上層が tmpfs (1G) になり、変更は再起動で消えます。
 - 変更を残す作業は RW モード (`overlayroot=0`) で行います。
+- カーネルは UKI として起動します。mkinitcpio の preset で、通常の起動用の `arch.efi` を `/etc/kernel/cmdline` から、RW モード用の `arch-rw.efi` を `/etc/kernel/cmdline-rw` から生成します。Secure Boot が有効な場合、UKI に埋め込んだ cmdline はブートエントリから上書きできないため、cmdline ごとに UKI を分けています。cmdline を変更した場合は、`mkinitcpio -P` で UKI を生成し直してください。
 - `pacman -Syu` も RW モードで行います。`/boot` は overlay の外にあるため、通常の起動で更新するとカーネルだけが新しくなり、再起動後に対応するモジュールがなくなります。
 - OverlayFS で起動しているときは、`boot-ro.service` が `/boot` を読み取り専用にします。カーネルパニックで ESP が dirty になるのを防ぐためです。
 - mkinitcpio の HOOKS では、overlayroot を filesystems と fsck の間に置いています。
 - タイマーの状態は再起動で消えるので、タイマーは `Persistent=false` にしています。
 
 ```sh
-sudo bootctl set-oneshot arch-rw.conf && sudo reboot   # 次回だけ RW モードで起動
+sudo bootctl set-oneshot arch-rw.efi && sudo reboot    # 次回だけ RW モードで起動
 df -h /mnt/rootfs.upper                                # 上層の使用量
 find /mnt/rootfs.upper/upper -type f | sort            # 上層に書き込まれたファイル
 ```

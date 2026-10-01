@@ -1,5 +1,9 @@
 ALL_kver="/boot/vmlinuz-linux-lts"
 
-PRESETS=('default')
+PRESETS=('default' 'rw')
 
-default_image="/boot/initramfs-linux-lts.img"
+default_uki="/boot/EFI/Linux/arch.efi"
+
+# Secure Boot が有効な場合は UKI の cmdline をブートエントリから上書きできないため、RW モード用に別の UKI を生成する
+rw_uki="/boot/EFI/Linux/arch-rw.efi"
+rw_options="--cmdline /etc/kernel/cmdline-rw"
