@@ -37,6 +37,17 @@ secure_boot=$(od -An -tu1 -j4 -N1 /sys/firmware/efi/efivars/SecureBoot-8be4df61-
 watchdog=$(systemctl show -p RuntimeWatchdogUSec --value)
 
 overlay=$(bool mountpoint -q /mnt/rootfs.upper)
+
+ab_slot=$(sed -n 's|.*root=/dev/mapper/arch_cryptroot_\([ab]\) .*|\1|p' /proc/cmdline)
+boot=$(bootctl status 2>/dev/null)
+ab_current=$(sed -n 's/^ *Current Entry: //p' <<<"$boot")
+ab_default=$(sed -n 's/^ *Default Entry: //p' <<<"$boot")
+# RW モードでは既定と一致しないのが正常なので判定しない
+ab_committed=null
+if [ "$overlay" = 1 ] && [ -n "$ab_current" ]; then
+  [ "$ab_current" = "$ab_default" ] && ab_committed=1 || ab_committed=0
+fi
+pkg_updated=$(stat -c %Y /var/lib/pacman/local 2>/dev/null)
 # ext4 の / と /mnt/rootfs.lower は Linux by Zabbix agent が見る
 fs=$(for m in /mnt/rootfs.upper /boot /var/log /tmp /var/tmp; do
        mountpoint -q "$m" 2>/dev/null || continue
@@ -107,6 +118,8 @@ json=$(jq -nc \
   --arg running "$running" --arg installed "$installed" --argjson reboot_required "$reboot_required" \
   --argjson temp "$(num "$temp")" --argjson secure_boot "$(num "$secure_boot")" --arg watchdog "$watchdog" \
   --argjson overlay "$overlay" --argjson fs "$fs" --argjson smart "$smart" \
+  --arg ab_slot "$ab_slot" --arg ab_default "$ab_default" --argjson ab_committed "$ab_committed" \
+  --argjson pkg_updated "$(num "$pkg_updated")" \
   --arg jquake_state "$jquake_state" --argjson jquake_restarts "$(num "$jquake_restarts")" \
   --argjson jquake_rss "$(num "$jquake_rss")" \
   --argjson dmdata "$dmdata" \
@@ -121,6 +134,9 @@ json=$(jq -nc \
     secure_boot: $secure_boot,
     watchdog: $watchdog,
     overlay: $overlay,
+    ab: {slot: (if $ab_slot == "" then null else $ab_slot end),
+         default: (if $ab_default == "" then null else $ab_default end), committed: $ab_committed},
+    pacman: {updated: $pkg_updated},
     fs: $fs,
     smart: $smart,
     jquake: {state: $jquake_state, active: (if $jquake_state == "active" then 1 else 0 end),

@@ -11,6 +11,61 @@ zabbix_export:
       groups:
         - name: Templates/Applications
       items:
+        - uuid: e57986665abe4acfb09a4e2cae1e9152
+          name: 'A/B: 確定済み'
+          type: DEPENDENT
+          key: eqwatch.ab.committed
+          delay: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.ab.committed
+              error_handler: DISCARD_VALUE
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          tags:
+            - tag: component
+              value: system
+          triggers:
+            - uuid: 1dc550182bf94c529587eb5910777cf4
+              expression: 'max(/eqwatch status/eqwatch.ab.committed,15m)=0'
+              name: 'A/B スロット未確定'
+              priority: AVERAGE
+              description: 'ab-commit の確定条件を満たしていない'
+        - uuid: 72ca5220a9904f36a3db7b03c505cb70
+          name: 'A/B: 既定のブートエントリ'
+          type: DEPENDENT
+          key: eqwatch.ab.default
+          delay: '0'
+          value_type: CHAR
+          trends: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.ab.default
+              error_handler: DISCARD_VALUE
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          tags:
+            - tag: component
+              value: system
+        - uuid: 97c1c15b197e4b0da38101e0e182f25a
+          name: 'A/B: 稼働中スロット'
+          type: DEPENDENT
+          key: eqwatch.ab.slot
+          delay: '0'
+          value_type: CHAR
+          trends: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.ab.slot
+              error_handler: DISCARD_VALUE
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          tags:
+            - tag: component
+              value: system
         - uuid: dcebc59aa4ca4c9389040b7b8481fd10
           name: '音声: ミュート'
           type: DEPENDENT
@@ -407,6 +462,29 @@ zabbix_export:
               expression: 'last(/eqwatch status/eqwatch.overlay)=0'
               name: 'RW モードで稼働中'
               priority: WARNING
+        - uuid: 779d27c82474414eacc767b1a2802316
+          name: 'パッケージ: 最終更新'
+          type: DEPENDENT
+          key: eqwatch.pacman.updated
+          delay: '0'
+          units: unixtime
+          description: '/var/lib/pacman/local の更新時刻'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.pacman.updated
+              error_handler: DISCARD_VALUE
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          tags:
+            - tag: component
+              value: system
+          triggers:
+            - uuid: 75868f5812974872bd595455a6c34619
+              expression: 'now()-last(/eqwatch status/eqwatch.pacman.updated)>{$EQWATCH.PKG.AGE.WARN}*86400'
+              name: パッケージ未更新
+              opdata: '{ITEM.LASTVALUE1}'
+              priority: WARNING
         - uuid: 8d0ebc66ed4c416494704068d5185dc4
           name: 'Secure Boot'
           type: DEPENDENT
@@ -657,3 +735,5 @@ zabbix_export:
           value: '90'
         - macro: '{$EQWATCH.FS.PUSED.WARN:"/mnt/rootfs.upper"}'
           value: '70'
+        - macro: '{$EQWATCH.PKG.AGE.WARN}'
+          value: '60'
