@@ -1,9 +1,24 @@
-ALL_kver="/boot/vmlinuz-linux-lts"
+# スロットは / のデバイスで判定する (両スロット共通のファイル)
+# 移行時など判定できない場合は AB_SLOT=a|b で指定する
+case "${AB_SLOT:-$(findmnt -no SOURCE /)}" in
+    a|/dev/mapper/arch_cryptroot_a) _slot=a ;;
+    b|/dev/mapper/arch_cryptroot_b) _slot=b ;;
+    *) _slot= ;;
+esac
 
-PRESETS=('default' 'rw')
+if [ -n "$_slot" ]; then
+    # /boot/vmlinuz-linux-lts は両スロット共有の ESP 上にあるため、対象スロットのカーネルを使う
+    ALL_kver="$(echo /usr/lib/modules/*-lts/vmlinuz)"
 
-default_uki="/boot/EFI/Linux/arch.efi"
+    PRESETS=('default' 'rw')
 
-# Secure Boot が有効な場合は UKI の cmdline をブートエントリから上書きできないため、RW モード用に別の UKI を生成する
-rw_uki="/boot/EFI/Linux/arch-rw.efi"
-rw_options="--cmdline /etc/kernel/cmdline-rw"
+    default_uki="/boot/EFI/Linux/arch-${_slot}.efi"
+    default_options="--cmdline /etc/kernel/cmdline.${_slot}"
+
+    # Secure Boot が有効な場合は UKI の cmdline をブートエントリから上書きできないため、RW モード用に別の UKI を生成する
+    rw_uki="/boot/EFI/Linux/arch-${_slot}-rw.efi"
+    rw_options="--cmdline /etc/kernel/cmdline.${_slot}-rw"
+else
+    # OverlayFS 起動中やライブ環境では生成をスキップ
+    PRESETS=()
+fi

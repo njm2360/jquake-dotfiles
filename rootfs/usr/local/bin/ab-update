@@ -1,0 +1,85 @@
+#!/bin/bash
+# 稼働中スロットの下層を待機スロットへコピーして更新し、次回の起動を待機スロットに予約する
+# usage: ab-update [--no-upgrade]
+set -euo pipefail
+
+upgrade=1
+case "${1:-}" in
+    "") ;;
+    --no-upgrade) upgrade=0 ;;
+    *) echo "usage: ab-update [--no-upgrade]" >&2; exit 2 ;;
+esac
+
+die() { echo "ab-update: $*" >&2; exit 1; }
+
+[ "$(id -u)" = 0 ] || die "root 権限が必要です"
+mountpoint -q /mnt/rootfs.lower || die "OverlayFS 起動時のみ実行できます"
+
+uuid() { sed -n 's/.*cryptdevice=UUID=\([^:]*\):.*/\1/p' "$1"; }
+cur_uuid=$(uuid /proc/cmdline)
+uuid_a=$(uuid /etc/kernel/cmdline.a)
+uuid_b=$(uuid /etc/kernel/cmdline.b)
+[ -n "$cur_uuid" ] && [ -n "$uuid_a" ] && [ -n "$uuid_b" ] || die "cmdline から UUID を取得できませんでした"
+if [ "$cur_uuid" = "$uuid_a" ]; then
+    tgt=b tgt_uuid=$uuid_b
+elif [ "$cur_uuid" = "$uuid_b" ]; then
+    tgt=a tgt_uuid=$uuid_a
+else
+    die "稼働中スロットを判定できませんでした"
+fi
+
+tgt_dev=$(realpath "/dev/disk/by-uuid/$tgt_uuid")
+lower_dev=/dev/$(lsblk -no PKNAME "$(findmnt -no SOURCE /mnt/rootfs.lower)")
+[ "$tgt_dev" != "$lower_dev" ] || die "更新先 $tgt_dev は稼働中スロットです"
+
+name=arch_cryptroot_$tgt
+root=/mnt/ab-target
+
+cleanup() {
+    umount -R "$root" 2>/dev/null || true
+    cryptsetup close "$name" 2>/dev/null || true
+    mount -o remount,ro /boot 2>/dev/null || true
+}
+trap cleanup EXIT
+
+echo "==> 待機スロット $tgt ($tgt_dev) を更新します"
+if [ ! -b "/dev/mapper/$name" ]; then
+    clevis luks unlock -d "$tgt_dev" -n "$name" || cryptsetup open "$tgt_dev" "$name"
+fi
+mkdir -p "$root"
+mount "/dev/mapper/$name" "$root"
+
+echo "==> ファイルをコピーしています"
+rsync -aHAXS --numeric-ids --delete --exclude=/lost+found --info=stats1 /mnt/rootfs.lower/ "$root/"
+
+mount -o remount,rw /boot
+mount --bind /boot "$root/boot"
+
+# pacman フック経由の mkinitcpio にもスロットを渡す
+if [ "$upgrade" = 1 ]; then
+    echo "==> pacman -Syu を実行します"
+    arch-chroot "$root" env AB_SLOT="$tgt" pacman -Syu
+fi
+echo "==> UKI を生成しています"
+arch-chroot "$root" env AB_SLOT="$tgt" mkinitcpio -P
+# 切り戻しはスロット単位で行うため、パッケージキャッシュは残さない
+find "$root/var/cache/pacman/pkg" -mindepth 1 -delete
+
+cleanup
+trap - EXIT
+
+# 未署名の UKI では systemd-boot が停止するため、予約前に署名を確認する
+# /boot のバインド中は sbctl が ESP を検出できないため、後片付けのあとに実行する
+# grep -q へ直接パイプすると pipefail により SIGPIPE で失敗するため、出力を変数で受ける
+verify=$(sbctl verify 2>&1 || true)
+for f in "arch-$tgt.efi" "arch-$tgt-rw.efi"; do
+    if ! grep -qF "/$f is signed" <<<"$verify"; then
+        grep -F "arch-$tgt" <<<"$verify" >&2 || true
+        die "$f の署名を確認できませんでした"
+    fi
+done
+entries=$(bootctl list --no-pager 2>/dev/null || true)
+grep -qF "id: arch-$tgt.efi" <<<"$entries" || die "arch-$tgt.efi がブートエントリに見つかりません"
+
+bootctl set-oneshot "arch-$tgt.efi"
+echo "==> 次回起動時にスロット $tgt へ切り替わります。sudo reboot で再起動してください"

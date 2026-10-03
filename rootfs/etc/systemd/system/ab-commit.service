@@ -1,0 +1,10 @@
+[Unit]
+Description=Make the current A/B slot the default boot entry
+# OverlayFS 起動時のみ確定
+ConditionPathIsMountPoint=/mnt/rootfs.upper
+
+[Service]
+Type=oneshot
+ExecCondition=/bin/sh -c '[ "$$(systemctl is-system-running)" = running ]'
+ExecCondition=/usr/bin/systemctl --user -M eqwatch@ is-active --quiet jquake.service
+ExecStart=/usr/bin/bootctl set-default @current

@@ -1,0 +1,8 @@
+[Unit]
+Description=Commit the current A/B slot after boot
+
+[Timer]
+OnBootSec=10min
+
+[Install]
+WantedBy=timers.target

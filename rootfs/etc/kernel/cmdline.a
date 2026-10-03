@@ -1,0 +1,1 @@
+cryptdevice=UUID=<LUKS_UUID_A>:arch_cryptroot_a root=/dev/mapper/arch_cryptroot_a rw lsm=landlock,lockdown,yama,integrity,apparmor,bpf quiet loglevel=3

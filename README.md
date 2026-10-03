@@ -26,7 +26,7 @@ uv run deploy-diff.py jquake     # パスの一部で対象を絞る
 
 ### 置換が必要なもの
 
-- `rootfs/etc/kernel/cmdline`, `rootfs/etc/kernel/cmdline-rw`: `<LUKS_PARTITION_UUID>`
+- `rootfs/etc/kernel/cmdline.*`: `<LUKS_UUID_A>`, `<LUKS_UUID_B>` (スロット A/B の LUKS パーティション)
 - `rootfs/etc/fstab`: `<ESP_UUID>`
 - `rootfs/etc/systemd/network/30-vlan200.network`: IP アドレス、ゲートウェイ、DNS
 - 監視サーバーのアドレス
@@ -45,6 +45,23 @@ uv run deploy-diff.py jquake     # パスの一部で対象を絞る
 
 ## 構築
 
+### パーティション
+
+| パーティション | サイズ | 中身 | マッパ名 |
+| --- | --- | --- | --- |
+| `sda1` | 512M | ESP (vfat) | - |
+| `sda2` | 9 GiB | スロット A: LUKS2 + ext4 | `arch_cryptroot_a` |
+| `sda3` | 残り | スロット B: LUKS2 + ext4 | `arch_cryptroot_b` |
+
+マッパ名は preset のスロット判定に使用するため、インストール時もこの名前で開いてください。B の UUID は `.env` の `LUKS_UUID_B` と一致させます。
+
+```sh
+cryptsetup luksFormat --type luks2 --uuid <LUKS_UUID_B> /dev/sda3
+cryptsetup open /dev/sda3 arch_cryptroot_b && mkfs.ext4 /dev/mapper/arch_cryptroot_b && cryptsetup close arch_cryptroot_b
+```
+
+B の中身は、A の構築完了後に OverlayFS で起動し、`sudo ab-update --no-upgrade` で作成します。
+
 ### システム (owner)
 
 構築は RW モードで行い、最後に OverlayFS へ切り替えます。`mkinitcpio -P` で overlayroot フックが組み込まれると、既定のブートエントリでは再起動で変更が消えます。
@@ -53,18 +70,18 @@ uv run deploy-diff.py jquake     # パスの一部で対象を絞る
 sudo pacman -S --needed - < packages.txt
 uv run deploy-diff.py --apply    # 管理 PC で実行し、表示された apply.sh を実機で sudo で実行
 sudo locale-gen
-sudo mkinitcpio -P
-sudo bootctl set-default arch-rw.efi
+sudo env AB_SLOT=a mkinitcpio -P
+sudo bootctl set-default arch-a-rw.efi
 sudo groupadd -r autologin && sudo gpasswd -a eqwatch autologin
 sudo ln -s /etc/apparmor.d/firefox /etc/apparmor.d/disable/firefox
 sudo systemctl enable systemd-networkd systemd-resolved systemd-timesyncd systemd-boot-update sshd nftables lightdm apparmor syslog-ng@default netconsole \
-  fstrim.timer eqwatch-status.timer smart-selftest.timer zabbix-agent boot-ro
+  fstrim.timer eqwatch-status.timer smart-selftest.timer ab-commit.timer zabbix-agent boot-ro
 sudo systemctl disable systemd-network-generator
 sudo systemctl mask archlinux-keyring-wkd-sync.timer systemd-tpm2-setup-early.service systemd-pcrproduct.service systemd-pcrlogin@.service
 sudo systemctl --global disable p11-kit-server.socket
 ```
 
-構築が終わったら `sudo bootctl set-default arch.efi` で OverlayFS に切り替えます。
+構築が終わったら `sudo bootctl set-default arch-a.efi` で OverlayFS に切り替えます。
 
 ### eqwatch
 
@@ -100,15 +117,17 @@ sudo sbctl verify
 ### LUKS / Clevis
 
 ```sh
-sudo clevis luks bind -d /dev/disk/by-uuid/<LUKS_PARTITION_UUID> tpm2 '{"pcr_bank":"sha256","pcr_ids":"0,2,3,5,6,7"}'
+sudo clevis luks bind -d /dev/disk/by-uuid/<LUKS_UUID_A> tpm2 '{"pcr_bank":"sha256","pcr_ids":"0,2,3,5,6,7"}'
 ```
+
+スロット B (`<LUKS_UUID_B>`) も同じ手順でバインドします。
 
 TPM による自動解除に失敗した場合は、パスフレーズで起動してバインドし直します。
 
 ```sh
-sudo clevis luks list -d /dev/disk/by-uuid/<LUKS_PARTITION_UUID>
-sudo clevis luks unbind -d /dev/disk/by-uuid/<LUKS_PARTITION_UUID> -s <SLOT>   # list で確認したスロット番号
-sudo clevis luks bind -d /dev/disk/by-uuid/<LUKS_PARTITION_UUID> tpm2 '{"pcr_bank":"sha256","pcr_ids":"0,2,3,5,6,7"}'
+sudo clevis luks list -d /dev/disk/by-uuid/<LUKS_UUID_A>
+sudo clevis luks unbind -d /dev/disk/by-uuid/<LUKS_UUID_A> -s <SLOT>   # list で確認したスロット番号
+sudo clevis luks bind -d /dev/disk/by-uuid/<LUKS_UUID_A> tpm2 '{"pcr_bank":"sha256","pcr_ids":"0,2,3,5,6,7"}'
 ```
 
 - PCR の値は `systemd-analyze pcrs` で確認できます。
@@ -122,16 +141,34 @@ sudo clevis luks bind -d /dev/disk/by-uuid/<LUKS_PARTITION_UUID> tpm2 '{"pcr_ban
 
 - 通常の起動では上層が tmpfs (1G) になり、変更は再起動で消えます。
 - 変更を残す作業は RW モード (`overlayroot=0`) で行います。
-- カーネルは UKI として起動します。mkinitcpio の preset で、通常の起動用の `arch.efi` を `/etc/kernel/cmdline` から、RW モード用の `arch-rw.efi` を `/etc/kernel/cmdline-rw` から生成します。Secure Boot が有効な場合、UKI に埋め込んだ cmdline はブートエントリから上書きできないため、cmdline ごとに UKI を分けています。cmdline を変更した場合は、`mkinitcpio -P` で UKI を生成し直してください。
-- `pacman -Syu` も RW モードで行います。`/boot` は overlay の外にあるため、通常の起動で更新するとカーネルだけが新しくなり、再起動後に対応するモジュールがなくなります。
+- カーネルは UKI として起動します。mkinitcpio の preset で、通常の起動用の `arch-<slot>.efi` を `/etc/kernel/cmdline.<slot>` から、RW モード用の `arch-<slot>-rw.efi` を `/etc/kernel/cmdline.<slot>-rw` から生成します。Secure Boot が有効な場合、UKI に埋め込んだ cmdline はブートエントリから上書きできないため、cmdline ごとに UKI を分けています。cmdline を変更した場合は、RW モードで `mkinitcpio -P` を実行して UKI を生成し直してください。待機スロットには次回の `ab-update` で反映されます。
+- パッケージの更新は `ab-update` で行います (A/B スロットを参照)。
 - OverlayFS で起動しているときは、`boot-ro.service` が `/boot` を読み取り専用にします。カーネルパニックで ESP が dirty になるのを防ぐためです。
 - mkinitcpio の HOOKS では、overlayroot を filesystems と fsck の間に置いています。
 - タイマーの状態は再起動で消えるので、タイマーは `Persistent=false` にしています。
 
 ```sh
-sudo bootctl set-oneshot arch-rw.efi && sudo reboot    # 次回だけ RW モードで起動
+rwboot                                                 # 次回のみ稼働中スロットの RW モードで起動
 df -h /mnt/rootfs.upper                                # 上層の使用量
 find /mnt/rootfs.upper/upper -type f | sort            # 上層に書き込まれたファイル
+```
+
+### A/B スロット
+
+ルートは `sda2` (A) と `sda3` (B) の 2 スロットです。
+
+- 両スロットには同じファイルを置きます。preset は `/` のデバイスでスロットを判定し、OverlayFS で起動しているときは UKI を生成しません。
+- `ab-update` は OverlayFS で起動しているときに実行します。稼働中スロットの下層を待機スロットへコピーし、chroot で更新したうえで、次回の起動を待機スロットに予約します。
+- `ab-update` は待機スロットを毎回上書きします。切り替える前に再度実行すると、前回の更新内容は失われます。
+- 切り替え後、起動から 10 分経過した時点でシステムが running かつ JQuake が稼働中であれば、`ab-commit.timer` がそのスロットを既定に設定します。切り替え先で起動できなかった場合は、元のスロットで起動します。
+- 設定ファイルは RW モードで配置してください。OverlayFS で起動中に配置した内容は上層 (tmpfs) にのみ書き込まれ、`ab-update` のコピー対象になりません。
+- `deploy-diff.py` の比較対象は稼働中スロットのみです。待機スロットには次回の `ab-update` で反映されます。
+
+```sh
+sudo ab-update                    # 待機スロットへコピーして pacman -Syu
+sudo ab-update --no-upgrade       # コピーと UKI の生成のみ
+sudo reboot
+bootctl status | grep -E 'Current Entry|Default Entry'
 ```
 
 ### Firefox
