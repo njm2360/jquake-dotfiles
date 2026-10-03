@@ -168,6 +168,7 @@ find /mnt/rootfs.upper/upper -type f | sort            # 上層に書き込ま�
 sudo ab-update                    # 待機スロットへコピーして pacman -Syu
 sudo ab-update --no-upgrade       # コピーと UKI の生成のみ
 sudo reboot
+abswitch                          # 更新せずに待機スロットで起動 (切り戻し用)
 bootctl status | grep -E 'Current Entry|Default Entry'
 ```
 
