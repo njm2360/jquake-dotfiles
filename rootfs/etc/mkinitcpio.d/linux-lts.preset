@@ -7,7 +7,8 @@ case "${AB_SLOT:-$(findmnt -no SOURCE /)}" in
 esac
 
 if [ -n "$_slot" ]; then
-    # /boot/vmlinuz-linux-lts は両スロット共有の ESP 上にあるため、対象スロットのカーネルを使う
+    # パッケージ既定の ALL_kver (/boot/vmlinuz-linux-lts) は両スロット共有の ESP を指すため、対象スロットのカーネルを使う
+    # ALL_kver がパッケージ所有のファイルを指すので、mkinitcpio のフックは /boot にカーネルをコピーしない
     ALL_kver="$(echo /usr/lib/modules/*-lts/vmlinuz)"
 
     PRESETS=('default' 'rw')

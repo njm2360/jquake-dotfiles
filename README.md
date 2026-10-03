@@ -98,20 +98,20 @@ vncpasswd
 
 ### Secure Boot (sbctl)
 
-UEFI の設定で Setup Mode にしてから実行します。
+UEFI の設定で Setup Mode にしてから、RW モードで実行します。
 
 ```sh
 sudo sbctl create-keys
 sudo sbctl enroll-keys -m
 sudo sbctl sign -s /boot/EFI/BOOT/BOOTX64.EFI
 sudo sbctl sign -s /boot/EFI/systemd/systemd-bootx64.efi
-sudo sbctl sign -s /boot/vmlinuz-linux-lts
 sudo sbctl sign -s -o /usr/lib/systemd/boot/efi/systemd-bootx64.efi.signed /usr/lib/systemd/boot/efi/systemd-bootx64.efi
+sudo mkinitcpio -P
 sudo sbctl verify
 ```
 
-- 最後の `.signed` を登録しないと、systemd-boot-update が署名のない systemd-boot で ESP を上書きします。
-- UKI (`/boot/EFI/Linux/*.efi`) は、mkinitcpio が生成するたびに sbctl の post フックが署名します。
+- `.signed` を登録しないと、systemd-boot-update が署名のない systemd-boot で ESP を上書きします。
+- UKI (`/boot/EFI/Linux/*.efi`) は、mkinitcpio が生成するたびに sbctl の post フックが署名します。鍵の作成前に生成した UKI は署名されていないので、`mkinitcpio -P` で生成し直します。UKI は sbctl のデータベースには登録しません。
 - Secure Boot を設定すると PCR7 が変わるので、Clevis のバインドはその後に行います。
 
 ### LUKS / Clevis
