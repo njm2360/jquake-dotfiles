@@ -47,6 +47,8 @@ ab_committed=null
 if [ "$overlay" = 1 ] && [ -n "$ab_current" ]; then
   [ "$ab_current" = "$ab_default" ] && ab_committed=1 || ab_committed=0
 fi
+# ab-update が予約した次回の起動先 (bootctl set-oneshot)。systemd-boot が起動時に消す
+ab_pending=$(bool test -e /sys/firmware/efi/efivars/LoaderEntryOneShot-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f)
 pkg_updated=$(stat -c %Y /var/lib/pacman/local 2>/dev/null)
 # ext4 の / と /mnt/rootfs.lower は Linux by Zabbix agent が見る
 fs=$(for m in /mnt/rootfs.upper /boot /var/log /tmp /var/tmp; do
@@ -119,6 +121,7 @@ json=$(jq -nc \
   --argjson temp "$(num "$temp")" --argjson secure_boot "$(num "$secure_boot")" --arg watchdog "$watchdog" \
   --argjson overlay "$overlay" --argjson fs "$fs" --argjson smart "$smart" \
   --arg ab_slot "$ab_slot" --arg ab_default "$ab_default" --argjson ab_committed "$ab_committed" \
+  --argjson ab_pending "$ab_pending" \
   --argjson pkg_updated "$(num "$pkg_updated")" \
   --arg jquake_state "$jquake_state" --argjson jquake_restarts "$(num "$jquake_restarts")" \
   --argjson jquake_rss "$(num "$jquake_rss")" \
@@ -135,7 +138,8 @@ json=$(jq -nc \
     watchdog: $watchdog,
     overlay: $overlay,
     ab: {slot: (if $ab_slot == "" then null else $ab_slot end),
-         default: (if $ab_default == "" then null else $ab_default end), committed: $ab_committed},
+         default: (if $ab_default == "" then null else $ab_default end), committed: $ab_committed,
+         pending: $ab_pending},
     pacman: {updated: $pkg_updated},
     fs: $fs,
     smart: $smart,

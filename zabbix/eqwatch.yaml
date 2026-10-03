@@ -49,6 +49,27 @@ zabbix_export:
           tags:
             - tag: component
               value: system
+        - uuid: 55ce967508ca49e48ca0fc11ccd6c364
+          name: 'A/B: 切り替え予約'
+          type: DEPENDENT
+          key: eqwatch.ab.pending
+          delay: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.ab.pending
+              error_handler: DISCARD_VALUE
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          tags:
+            - tag: component
+              value: system
+          triggers:
+            - uuid: 08e993a98a1b48678f70331dabf9ff12
+              expression: 'min(/eqwatch status/eqwatch.ab.pending,1h)=1'
+              name: 'A/B スロット切り替え待ち'
+              priority: WARNING
+              description: 'ab-update の後に再起動していない'
         - uuid: 97c1c15b197e4b0da38101e0e182f25a
           name: 'A/B: 稼働中スロット'
           type: DEPENDENT
