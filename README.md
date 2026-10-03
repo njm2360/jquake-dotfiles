@@ -195,6 +195,8 @@ bootctl status | grep -E 'Current Entry|Default Entry'
 
 - `99-remove-usb.rules` で内部の USB オーディオデバイス (0573:1573) を無効化しています。
 - `DISPLAY` はユニットに直接書かず、Openbox の autostart から `eqwatch-session.target` 経由で渡しています。
+- JQuake はリンクを `java.awt.Desktop.browse` で開きます。JDK は GVfs が `http` を扱える場合にのみ BROWSE を有効にするため、gvfs が必要です。
+- gvfs の FUSE (`gvfsd-fuse`) は使用しないため、`gvfs-daemon.service` のドロップインで `GVFS_DISABLE_FUSE=1` を設定して無効化しています。
 - ミラーリストの更新:
 
 ```sh
