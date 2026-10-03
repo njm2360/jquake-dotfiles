@@ -41,7 +41,7 @@ uv run deploy-diff.py jquake     # パスの一部で対象を絞る
 - `home/eqwatch/.config/dmdata.env.example` → `~/.config/dmdata.env` (DM-D.S.S の API キー)
 - `home/eqwatch/.config/dtv.env.example` → `~/.config/dtv.env`
 
-パッケージ標準の設定ファイルは書き換えず、ドロップインで上書きしています。例外は `locale.gen` と `nftables.conf` で、これらはファイルごと置き換えます。
+パッケージ標準の設定ファイルは書き換えず、ドロップインで上書きしています。例外は `locale.gen`、`nftables.conf`、`pacman.conf` で、これらはファイルごと置き換えます。
 
 ## 構築
 
