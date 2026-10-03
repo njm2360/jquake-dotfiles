@@ -132,7 +132,7 @@ sudo clevis luks bind -d /dev/disk/by-uuid/<LUKS_UUID_A> tpm2 '{"pcr_bank":"sha2
 
 - PCR の値は `systemd-analyze pcrs` で確認できます。
 - PCR4/9/11 は UKI の更新や RW モードとの切り替えで、PCR1 は UEFI の設定変更で変わるため、バインド対象から外しています。
-- `loader.conf` は systemd-boot が PCR5 に測定します。変更した場合は、コメントだけの変更でもバインドし直してください。既定のエントリは `loader.conf` ではなく `bootctl set-default` (EFI 変数) で切り替えます。
+- `loader.conf` は systemd-boot が PCR5 に測定します。変更した場合は、コメントだけの変更でもバインドし直してください。既定のエントリは `loader.conf` ではなく `bootctl set-default` (EFI 変数) で切り替えます。`loader.conf` の `default` は EFI 変数がない場合の候補で、RW モード用を除いた新しい方のスロットを選びます。
 - UKI で起動すると、systemd は TPM の NvPCR を扱うユニットを実行します。この構成では `systemd-tpm2-setup-early`、`systemd-pcrproduct`、`systemd-pcrlogin@` が NvPCR を扱えずに失敗し (`No such file or directory`)、failed ユニットとして Zabbix に通知されるため、マスクしています。
 
 ## 運用メモ
