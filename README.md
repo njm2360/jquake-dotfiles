@@ -187,7 +187,7 @@ bootctl status | grep -E 'Current Entry|Default Entry'
 ### Zabbix
 
 - `zabbix/eqwatch.yaml` をインポートし、`Linux by Zabbix agent` と一緒にホストへリンクします。
-- 通知は Zabbix サーバーのメディアタイプで設定します。
+- 通知は Zabbix サーバーのメディアタイプで設定します。地震監視として即時に気づくべきトリガー (JQuake 停止、WebSocket 未接続、音声系、状態収集停止) にはタグ `notify=critical` を付けているので、通知アクションの条件に使ってください。
 - しきい値はマクロ `{$EQWATCH.*}` で、音声の出力先などは `/etc/default/eqwatch-status` で設定します。
 - 現在の値は `sudo eqwatch-status` で確認できます。
 

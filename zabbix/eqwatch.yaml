@@ -1,641 +1,659 @@
 zabbix_export:
   version: '7.0'
   template_groups:
-  - uuid: a571c0d144b14fd4a87a9d9b2aa9fcd6
-    name: Templates/Applications
+    - uuid: a571c0d144b14fd4a87a9d9b2aa9fcd6
+      name: Templates/Applications
   templates:
-  - uuid: 797593359f6e41628b1e5c0d3f1973d0
-    template: eqwatch status
-    name: eqwatch status
-    description: Linux by Zabbix agent と併用
-    groups:
-    - name: Templates/Applications
-    items:
-    - uuid: f9cc95d1283d414a937965e2360b37f7
-      name: 'eqwatch: 状態 JSON'
-      key: vfs.file.contents[/run/eqwatch-status.json]
-      history: '0'
-      value_type: TEXT
-      trends: '0'
-      description: /usr/local/bin/eqwatch-status の出力
+    - uuid: 797593359f6e41628b1e5c0d3f1973d0
+      template: 'eqwatch status'
+      name: 'eqwatch status'
+      description: 'Linux by Zabbix agent と併用'
+      groups:
+        - name: Templates/Applications
+      items:
+        - uuid: dcebc59aa4ca4c9389040b7b8481fd10
+          name: '音声: ミュート'
+          type: DEPENDENT
+          key: eqwatch.audio.muted
+          delay: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.audio.muted
+              error_handler: DISCARD_VALUE
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          tags:
+            - tag: component
+              value: audio
+          triggers:
+            - uuid: 77e4f96dea87409f9e78967b6877a081
+              expression: 'min(/eqwatch status/eqwatch.audio.muted,3m)=1'
+              name: 音声ミュート
+              priority: HIGH
+              tags:
+                - tag: notify
+                  value: critical
+        - uuid: d384b344b9b346eb95c5a2ac9d7456b0
+          name: '音声: 出力先'
+          type: DEPENDENT
+          key: eqwatch.audio.sink
+          delay: '0'
+          value_type: CHAR
+          trends: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.audio.sink
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          tags:
+            - tag: component
+              value: audio
+        - uuid: 02a2ecdf527f4576825ac954d0470b46
+          name: '音声: 出力先一致'
+          type: DEPENDENT
+          key: eqwatch.audio.sink_ok
+          delay: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.audio.sink_ok
+              error_handler: DISCARD_VALUE
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          tags:
+            - tag: component
+              value: audio
+          triggers:
+            - uuid: 065d0e9874694c9e81dc6482fd0ba8b6
+              expression: 'max(/eqwatch status/eqwatch.audio.sink_ok,3m)=0'
+              name: 音声出力先不一致
+              priority: HIGH
+              description: '期待値は /etc/default/eqwatch-status の EQWATCH_SINK'
+              tags:
+                - tag: notify
+                  value: critical
+        - uuid: c95dd558339045178a707aeba3b680ed
+          name: '音声: 音量'
+          type: DEPENDENT
+          key: eqwatch.audio.volume
+          delay: '0'
+          value_type: FLOAT
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.audio.volume
+              error_handler: DISCARD_VALUE
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          tags:
+            - tag: component
+              value: audio
+          triggers:
+            - uuid: f6e06e5471674a41b6509efb84b8ea3a
+              expression: 'max(/eqwatch status/eqwatch.audio.volume,3m)=0'
+              name: '音量 0'
+              priority: HIGH
+              tags:
+                - tag: notify
+                  value: critical
+        - uuid: 5e1abda6d9ff4b7ba7e4ef7525342512
+          name: 'CPU 温度'
+          type: DEPENDENT
+          key: eqwatch.cpu.temp
+          delay: '0'
+          value_type: FLOAT
+          units: °C
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.cpu_temp
+              error_handler: DISCARD_VALUE
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          tags:
+            - tag: component
+              value: system
+          triggers:
+            - uuid: 92ce136d451146a1bdb297d5658bddf1
+              expression: 'min(/eqwatch status/eqwatch.cpu.temp,5m)>={$EQWATCH.CPU.TEMP.WARN}'
+              name: 'CPU 温度上昇'
+              opdata: '{ITEM.LASTVALUE1}'
+              priority: WARNING
+        - uuid: 7e9211bb8ceb4382bca905cbc286d2a0
+          name: 'DM-D.S.S: API 取得'
+          type: DEPENDENT
+          key: eqwatch.dmdata.api_ok
+          delay: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.dmdata.api_ok
+              error_handler: DISCARD_VALUE
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          tags:
+            - tag: component
+              value: dmdata
+          triggers:
+            - uuid: c59001c274f94892ae6a7a0697a0bbb3
+              expression: 'max(/eqwatch status/eqwatch.dmdata.api_ok,15m)=0'
+              name: 'DM-D.S.S API 取得失敗'
+              priority: WARNING
+        - uuid: f6ed49bde11c43368fb094fa985bc293
+          name: 'DM-D.S.S: 接続アプリ'
+          type: DEPENDENT
+          key: eqwatch.dmdata.apps
+          delay: '0'
+          value_type: CHAR
+          trends: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.dmdata.apps
+              error_handler: DISCARD_VALUE
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          tags:
+            - tag: component
+              value: dmdata
+        - uuid: 26e2cb5140a94e35b65ae639310ca267
+          name: 'DM-D.S.S: API キー設定'
+          type: DEPENDENT
+          key: eqwatch.dmdata.configured
+          delay: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.dmdata.configured
+              error_handler: DISCARD_VALUE
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          tags:
+            - tag: component
+              value: dmdata
+          triggers:
+            - uuid: 52a4bec3738545fcb4058c0e4e10dfa7
+              expression: 'last(/eqwatch status/eqwatch.dmdata.configured)=0'
+              name: 'DM-D.S.S API キー未設定'
+              priority: WARNING
+              description: '~eqwatch/.config/dmdata.env が無い'
+        - uuid: 913e9a01fa114ba99237f58e1297d313
+          name: 'DM-D.S.S: WebSocket 接続数'
+          type: DEPENDENT
+          key: eqwatch.dmdata.sockets
+          delay: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.dmdata.sockets
+              error_handler: DISCARD_VALUE
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          tags:
+            - tag: component
+              value: dmdata
+          triggers:
+            - uuid: 9256e746d15748e0b6aee54970e02ad8
+              expression: 'max(/eqwatch status/eqwatch.dmdata.sockets,10m)=0'
+              name: 'DM-D.S.S WebSocket 未接続'
+              priority: HIGH
+              tags:
+                - tag: notify
+                  value: critical
+        - uuid: 30324fec480040e9b8fee0ffbb4ae0ec
+          name: 'DNS (dmdata.jp)'
+          type: DEPENDENT
+          key: eqwatch.dns_ok
+          delay: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.dns_ok
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          tags:
+            - tag: component
+              value: network
+          triggers:
+            - uuid: c61de6d20fba4ca9a1ce55db4e74d78c
+              expression: 'max(/eqwatch status/eqwatch.dns_ok,5m)=0'
+              name: 'dmdata.jp 名前解決失敗'
+              priority: AVERAGE
+        - uuid: 3122ab056fd24bec813e3310c94f5de4
+          name: 'JQuake: 稼働中'
+          type: DEPENDENT
+          key: eqwatch.jquake.active
+          delay: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.jquake.active
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          tags:
+            - tag: component
+              value: jquake
+          triggers:
+            - uuid: fce4844a5139448eb3e69fc872b312fd
+              expression: 'max(/eqwatch status/eqwatch.jquake.active,3m)=0'
+              name: 'JQuake 停止'
+              priority: HIGH
+              tags:
+                - tag: notify
+                  value: critical
+        - uuid: 7d7e1a82f323436086699e9766ee7b89
+          name: 'JQuake: 再起動回数'
+          type: DEPENDENT
+          key: eqwatch.jquake.nrestarts
+          delay: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.jquake.nrestarts
+              error_handler: DISCARD_VALUE
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          tags:
+            - tag: component
+              value: jquake
+          triggers:
+            - uuid: 224c862840e249b48622d17a11c4d301
+              expression: 'change(/eqwatch status/eqwatch.jquake.nrestarts)>0'
+              recovery_mode: NONE
+              name: 'JQuake 再起動'
+              priority: WARNING
+              manual_close: 'YES'
+        - uuid: 6938a9a14e5443f397662e7f765947bc
+          name: 'JQuake: メモリ (RSS)'
+          type: DEPENDENT
+          key: eqwatch.jquake.rss
+          delay: '0'
+          units: B
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.jquake.rss_bytes
+              error_handler: DISCARD_VALUE
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          tags:
+            - tag: component
+              value: jquake
+        - uuid: 192fbc3a8f6b45dbb4acf3888e37f27a
+          name: 'JQuake: 状態'
+          type: DEPENDENT
+          key: eqwatch.jquake.state
+          delay: '0'
+          value_type: CHAR
+          trends: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.jquake.state
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          tags:
+            - tag: component
+              value: jquake
+        - uuid: 96d2e53c8ead470bb226f450f517ca0b
+          name: 'カーネル: インストール済み'
+          type: DEPENDENT
+          key: eqwatch.kernel.installed
+          delay: '0'
+          value_type: CHAR
+          trends: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.kernel.installed
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          tags:
+            - tag: component
+              value: system
+        - uuid: 5940c1800cce47f39f7776225fcbc3d7
+          name: 'カーネル: 再起動待ち'
+          type: DEPENDENT
+          key: eqwatch.kernel.reboot_required
+          delay: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.kernel.reboot_required
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          tags:
+            - tag: component
+              value: system
+          triggers:
+            - uuid: 2971b18877104226a6bad9a8f3cbd359
+              expression: 'last(/eqwatch status/eqwatch.kernel.reboot_required)=1'
+              name: カーネル更新後の再起動待ち
+              priority: WARNING
+        - uuid: 4d7caef88c3e47cf88b7fad5305f8970
+          name: 'カーネル: 実行中'
+          type: DEPENDENT
+          key: eqwatch.kernel.running
+          delay: '0'
+          value_type: CHAR
+          trends: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.kernel.running
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          tags:
+            - tag: component
+              value: system
+        - uuid: da690b424e6c486d954dcbce822374d9
+          name: 'NTP 同期'
+          type: DEPENDENT
+          key: eqwatch.ntp_synced
+          delay: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.ntp_synced
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          tags:
+            - tag: component
+              value: network
+          triggers:
+            - uuid: ae59c130b0e64416891b55018a7aaf12
+              expression: 'max(/eqwatch status/eqwatch.ntp_synced,15m)=0'
+              name: 'NTP 未同期'
+              priority: WARNING
+        - uuid: cc0193ffa6164738a2a36cf8315f7efc
+          name: 'OOM 発生回数 (今回起動後)'
+          type: DEPENDENT
+          key: eqwatch.oom
+          delay: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.oom
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          tags:
+            - tag: component
+              value: system
+          triggers:
+            - uuid: 1617252bb8ed4a079a06f906f015f06a
+              expression: 'change(/eqwatch status/eqwatch.oom)>0'
+              recovery_mode: NONE
+              name: 'OOM Killer 発動'
+              priority: WARNING
+              manual_close: 'YES'
+        - uuid: 1085acccd9e14f32aea034d9bf455411
+          name: OverlayFS
+          type: DEPENDENT
+          key: eqwatch.overlay
+          delay: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.overlay
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          tags:
+            - tag: component
+              value: system
+          triggers:
+            - uuid: 71afdd11cb9146639aa55033acdcf15d
+              expression: 'last(/eqwatch status/eqwatch.overlay)=0'
+              name: 'RW モードで稼働中'
+              priority: WARNING
+        - uuid: 8d0ebc66ed4c416494704068d5185dc4
+          name: 'Secure Boot'
+          type: DEPENDENT
+          key: eqwatch.secure_boot
+          delay: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.secure_boot
+              error_handler: DISCARD_VALUE
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          tags:
+            - tag: component
+              value: system
+          triggers:
+            - uuid: 93e0069b585d41349dfac09bf703f2bd
+              expression: 'last(/eqwatch status/eqwatch.secure_boot)=0'
+              name: 'Secure Boot 無効'
+              priority: WARNING
+        - uuid: 0668e6d7ae824c6c8e8ef49bd6f4f126
+          name: 'systemd: 失敗ユニット'
+          type: DEPENDENT
+          key: eqwatch.systemd.failed_units
+          delay: '0'
+          value_type: CHAR
+          trends: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.systemd.failed_units
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          tags:
+            - tag: component
+              value: system
+          triggers:
+            - uuid: 7400b4755bce42e1b2c76630bdbc2b65
+              expression: 'length(last(/eqwatch status/eqwatch.systemd.failed_units))>0'
+              name: 'systemd ユニット失敗'
+              opdata: '{ITEM.LASTVALUE1}'
+              priority: WARNING
+        - uuid: c8998d2e1bcd474ba06f77320346e491
+          name: 'eqwatch: 収集時刻'
+          type: DEPENDENT
+          key: eqwatch.time
+          delay: '0'
+          units: unixtime
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.time
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          tags:
+            - tag: component
+              value: system
+          triggers:
+            - uuid: 00ad24fab0814d1aae9d57f3adff92ba
+              expression: 'nodata(/eqwatch status/eqwatch.time,5m)=1 or fuzzytime(/eqwatch status/eqwatch.time,300)=0'
+              name: 'eqwatch: 状態収集停止'
+              priority: HIGH
+              description: 'eqwatch-status.timer の停止か JSON の読み取り失敗'
+              tags:
+                - tag: notify
+                  value: critical
+        - uuid: e0fda64a55454a36b904f4215611630d
+          name: ウォッチドッグ
+          type: DEPENDENT
+          key: eqwatch.watchdog
+          delay: '0'
+          value_type: CHAR
+          trends: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.watchdog
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          tags:
+            - tag: component
+              value: system
+          triggers:
+            - uuid: b88019f1b87842e1bf305a62127d7755
+              expression: 'last(/eqwatch status/eqwatch.watchdog)="0"'
+              name: ウォッチドッグ無効
+              priority: WARNING
+        - uuid: f9cc95d1283d414a937965e2360b37f7
+          name: 'eqwatch: 状態 JSON'
+          key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          history: '0'
+          value_type: TEXT
+          trends: '0'
+          description: '/usr/local/bin/eqwatch-status の出力'
+          tags:
+            - tag: component
+              value: raw
+      discovery_rules:
+        - uuid: 42bad13147104fc186e03c37a878ccf8
+          name: ファイルシステムの検出
+          type: DEPENDENT
+          key: eqwatch.fs.discovery
+          delay: '0'
+          description: 'Linux by Zabbix agent が拾わない tmpfs と vfat'
+          item_prototypes:
+            - uuid: 323c42e1ba084376a8c6326c83ea7fbe
+              name: '{#FSNAME}: 使用率'
+              type: DEPENDENT
+              key: 'eqwatch.fs.pused[{#FSNAME}]'
+              delay: '0'
+              value_type: FLOAT
+              units: '%'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.fs[?(@.mount==''{#FSNAME}'')].pused.first()'
+                  error_handler: DISCARD_VALUE
+              master_item:
+                key: 'vfs.file.contents[/run/eqwatch-status.json]'
+              tags:
+                - tag: component
+                  value: storage
+              trigger_prototypes:
+                - uuid: 2d2ce9a77af34dfcbf5dc78cfa872019
+                  expression: 'last(/eqwatch status/eqwatch.fs.pused[{#FSNAME}])>={$EQWATCH.FS.PUSED.WARN:"{#FSNAME}"}'
+                  name: '{#FSNAME}: 使用率超過 (警告)'
+                  opdata: '{ITEM.LASTVALUE1}'
+                  priority: WARNING
+                  dependencies:
+                    - name: '{#FSNAME}: 使用率超過 (重大)'
+                      expression: 'last(/eqwatch status/eqwatch.fs.pused[{#FSNAME}])>={$EQWATCH.FS.PUSED.CRIT:"{#FSNAME}"}'
+                - uuid: bef7d2cf234d41f8b4a751d39e229330
+                  expression: 'last(/eqwatch status/eqwatch.fs.pused[{#FSNAME}])>={$EQWATCH.FS.PUSED.CRIT:"{#FSNAME}"}'
+                  name: '{#FSNAME}: 使用率超過 (重大)'
+                  opdata: '{ITEM.LASTVALUE1}'
+                  priority: HIGH
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          lld_macro_paths:
+            - lld_macro: '{#FSNAME}'
+              path: $.mount
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.fs
+        - uuid: 3e761e8479a94e058c47a5b386e0e77c
+          name: 'SMART デバイスの検出'
+          type: DEPENDENT
+          key: eqwatch.smart.discovery
+          delay: '0'
+          item_prototypes:
+            - uuid: 34921b700a744c8db091d401d656c744
+              name: '{#DEV}: モデル'
+              type: DEPENDENT
+              key: 'eqwatch.smart.model[{#DEV}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.smart[?(@.dev==''{#DEV}'')].model.first()'
+                  error_handler: DISCARD_VALUE
+              master_item:
+                key: 'vfs.file.contents[/run/eqwatch-status.json]'
+              tags:
+                - tag: component
+                  value: storage
+            - uuid: 6d0d470b754f40a79eef76f0b12a1086
+              name: '{#DEV}: 稼働時間'
+              type: DEPENDENT
+              key: 'eqwatch.smart.power_on_hours[{#DEV}]'
+              delay: '0'
+              units: h
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.smart[?(@.dev==''{#DEV}'')].power_on_hours.first()'
+                  error_handler: DISCARD_VALUE
+              master_item:
+                key: 'vfs.file.contents[/run/eqwatch-status.json]'
+              tags:
+                - tag: component
+                  value: storage
+            - uuid: 4a0a601dbfbb45f7b6686759c1453c30
+              name: '{#DEV}: SMART 終了コード'
+              type: DEPENDENT
+              key: 'eqwatch.smart.rc[{#DEV}]'
+              delay: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.smart[?(@.dev==''{#DEV}'')].rc.first()'
+              master_item:
+                key: 'vfs.file.contents[/run/eqwatch-status.json]'
+              tags:
+                - tag: component
+                  value: storage
+              trigger_prototypes:
+                - uuid: 81c8479530104c509e3dbdbc5519b446
+                  expression: 'bitand(last(/eqwatch status/eqwatch.smart.rc[{#DEV}]),7)>0'
+                  name: '{#DEV}: SMART 取得失敗'
+                  priority: AVERAGE
+                - uuid: 5fe8317d6b714f7a9307c204b924206e
+                  expression: 'bitand(last(/eqwatch status/eqwatch.smart.rc[{#DEV}]),24)>0'
+                  name: '{#DEV}: SMART 異常 (故障予告・しきい値割れ)'
+                  priority: HIGH
+                - uuid: 362de1bbfe5b4a7698e4f316f4c8382c
+                  expression: 'bitand(last(/eqwatch status/eqwatch.smart.rc[{#DEV}]),224)>0'
+                  name: '{#DEV}: SMART 警告 (過去の異常・エラーログ・セルフテスト失敗)'
+                  priority: WARNING
+            - uuid: cd7a20d22c1d43549ae214f370504004
+              name: '{#DEV}: 温度'
+              type: DEPENDENT
+              key: 'eqwatch.smart.temp[{#DEV}]'
+              delay: '0'
+              units: °C
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.smart[?(@.dev==''{#DEV}'')].temp.first()'
+                  error_handler: DISCARD_VALUE
+              master_item:
+                key: 'vfs.file.contents[/run/eqwatch-status.json]'
+              tags:
+                - tag: component
+                  value: storage
+          master_item:
+            key: 'vfs.file.contents[/run/eqwatch-status.json]'
+          lld_macro_paths:
+            - lld_macro: '{#DEV}'
+              path: $.dev
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.smart
       tags:
-      - tag: component
-        value: raw
-    - uuid: c8998d2e1bcd474ba06f77320346e491
-      name: 'eqwatch: 収集時刻'
-      type: DEPENDENT
-      key: eqwatch.time
-      delay: '0'
-      units: unixtime
-      preprocessing:
-      - type: JSONPATH
-        parameters:
-        - $.time
-      master_item:
-        key: vfs.file.contents[/run/eqwatch-status.json]
-      tags:
-      - tag: component
-        value: system
-      triggers:
-      - uuid: 00ad24fab0814d1aae9d57f3adff92ba
-        expression: nodata(/eqwatch status/eqwatch.time,5m)=1 or fuzzytime(/eqwatch status/eqwatch.time,300)=0
-        name: 'eqwatch: 状態収集停止'
-        priority: HIGH
-        description: eqwatch-status.timer の停止か JSON の読み取り失敗
-    - uuid: 4d7caef88c3e47cf88b7fad5305f8970
-      name: 'カーネル: 実行中'
-      type: DEPENDENT
-      key: eqwatch.kernel.running
-      delay: '0'
-      value_type: CHAR
-      trends: '0'
-      preprocessing:
-      - type: JSONPATH
-        parameters:
-        - $.kernel.running
-      master_item:
-        key: vfs.file.contents[/run/eqwatch-status.json]
-      tags:
-      - tag: component
-        value: system
-    - uuid: 96d2e53c8ead470bb226f450f517ca0b
-      name: 'カーネル: インストール済み'
-      type: DEPENDENT
-      key: eqwatch.kernel.installed
-      delay: '0'
-      value_type: CHAR
-      trends: '0'
-      preprocessing:
-      - type: JSONPATH
-        parameters:
-        - $.kernel.installed
-      master_item:
-        key: vfs.file.contents[/run/eqwatch-status.json]
-      tags:
-      - tag: component
-        value: system
-    - uuid: 5940c1800cce47f39f7776225fcbc3d7
-      name: 'カーネル: 再起動待ち'
-      type: DEPENDENT
-      key: eqwatch.kernel.reboot_required
-      delay: '0'
-      preprocessing:
-      - type: JSONPATH
-        parameters:
-        - $.kernel.reboot_required
-      master_item:
-        key: vfs.file.contents[/run/eqwatch-status.json]
-      tags:
-      - tag: component
-        value: system
-      triggers:
-      - uuid: 2971b18877104226a6bad9a8f3cbd359
-        expression: last(/eqwatch status/eqwatch.kernel.reboot_required)=1
-        name: カーネル更新後の再起動待ち
-        priority: WARNING
-    - uuid: 5e1abda6d9ff4b7ba7e4ef7525342512
-      name: CPU 温度
-      type: DEPENDENT
-      key: eqwatch.cpu.temp
-      delay: '0'
-      value_type: FLOAT
-      units: °C
-      preprocessing:
-      - type: JSONPATH
-        parameters:
-        - $.cpu_temp
-        error_handler: DISCARD_VALUE
-      master_item:
-        key: vfs.file.contents[/run/eqwatch-status.json]
-      tags:
-      - tag: component
-        value: system
-      triggers:
-      - uuid: 92ce136d451146a1bdb297d5658bddf1
-        expression: min(/eqwatch status/eqwatch.cpu.temp,5m)>={$EQWATCH.CPU.TEMP.WARN}
-        name: CPU 温度上昇
-        opdata: '{ITEM.LASTVALUE1}'
-        priority: WARNING
-    - uuid: 8d0ebc66ed4c416494704068d5185dc4
-      name: Secure Boot
-      type: DEPENDENT
-      key: eqwatch.secure_boot
-      delay: '0'
-      preprocessing:
-      - type: JSONPATH
-        parameters:
-        - $.secure_boot
-        error_handler: DISCARD_VALUE
-      master_item:
-        key: vfs.file.contents[/run/eqwatch-status.json]
-      tags:
-      - tag: component
-        value: system
-      triggers:
-      - uuid: 93e0069b585d41349dfac09bf703f2bd
-        expression: last(/eqwatch status/eqwatch.secure_boot)=0
-        name: Secure Boot 無効
-        priority: WARNING
-    - uuid: e0fda64a55454a36b904f4215611630d
-      name: ウォッチドッグ
-      type: DEPENDENT
-      key: eqwatch.watchdog
-      delay: '0'
-      value_type: CHAR
-      trends: '0'
-      preprocessing:
-      - type: JSONPATH
-        parameters:
-        - $.watchdog
-      master_item:
-        key: vfs.file.contents[/run/eqwatch-status.json]
-      tags:
-      - tag: component
-        value: system
-      triggers:
-      - uuid: b88019f1b87842e1bf305a62127d7755
-        expression: last(/eqwatch status/eqwatch.watchdog)="0"
-        name: ウォッチドッグ無効
-        priority: WARNING
-    - uuid: 1085acccd9e14f32aea034d9bf455411
-      name: OverlayFS
-      type: DEPENDENT
-      key: eqwatch.overlay
-      delay: '0'
-      preprocessing:
-      - type: JSONPATH
-        parameters:
-        - $.overlay
-      master_item:
-        key: vfs.file.contents[/run/eqwatch-status.json]
-      tags:
-      - tag: component
-        value: system
-      triggers:
-      - uuid: 71afdd11cb9146639aa55033acdcf15d
-        expression: last(/eqwatch status/eqwatch.overlay)=0
-        name: RW モードで稼働中
-        priority: WARNING
-    - uuid: 192fbc3a8f6b45dbb4acf3888e37f27a
-      name: 'JQuake: 状態'
-      type: DEPENDENT
-      key: eqwatch.jquake.state
-      delay: '0'
-      value_type: CHAR
-      trends: '0'
-      preprocessing:
-      - type: JSONPATH
-        parameters:
-        - $.jquake.state
-      master_item:
-        key: vfs.file.contents[/run/eqwatch-status.json]
-      tags:
-      - tag: component
-        value: jquake
-    - uuid: 3122ab056fd24bec813e3310c94f5de4
-      name: 'JQuake: 稼働中'
-      type: DEPENDENT
-      key: eqwatch.jquake.active
-      delay: '0'
-      preprocessing:
-      - type: JSONPATH
-        parameters:
-        - $.jquake.active
-      master_item:
-        key: vfs.file.contents[/run/eqwatch-status.json]
-      tags:
-      - tag: component
-        value: jquake
-      triggers:
-      - uuid: fce4844a5139448eb3e69fc872b312fd
-        expression: max(/eqwatch status/eqwatch.jquake.active,3m)=0
-        name: JQuake 停止
-        priority: HIGH
-    - uuid: 7d7e1a82f323436086699e9766ee7b89
-      name: 'JQuake: 再起動回数'
-      type: DEPENDENT
-      key: eqwatch.jquake.nrestarts
-      delay: '0'
-      preprocessing:
-      - type: JSONPATH
-        parameters:
-        - $.jquake.nrestarts
-        error_handler: DISCARD_VALUE
-      master_item:
-        key: vfs.file.contents[/run/eqwatch-status.json]
-      tags:
-      - tag: component
-        value: jquake
-      triggers:
-      - uuid: 224c862840e249b48622d17a11c4d301
-        expression: change(/eqwatch status/eqwatch.jquake.nrestarts)>0
-        name: JQuake 再起動
-        priority: WARNING
-        recovery_mode: NONE
-        manual_close: 'YES'
-    - uuid: 6938a9a14e5443f397662e7f765947bc
-      name: 'JQuake: メモリ (RSS)'
-      type: DEPENDENT
-      key: eqwatch.jquake.rss
-      delay: '0'
-      units: B
-      preprocessing:
-      - type: JSONPATH
-        parameters:
-        - $.jquake.rss_bytes
-        error_handler: DISCARD_VALUE
-      master_item:
-        key: vfs.file.contents[/run/eqwatch-status.json]
-      tags:
-      - tag: component
-        value: jquake
-    - uuid: 26e2cb5140a94e35b65ae639310ca267
-      name: 'DM-D.S.S: API キー設定'
-      type: DEPENDENT
-      key: eqwatch.dmdata.configured
-      delay: '0'
-      preprocessing:
-      - type: JSONPATH
-        parameters:
-        - $.dmdata.configured
-        error_handler: DISCARD_VALUE
-      master_item:
-        key: vfs.file.contents[/run/eqwatch-status.json]
-      tags:
-      - tag: component
-        value: dmdata
-      triggers:
-      - uuid: 52a4bec3738545fcb4058c0e4e10dfa7
-        expression: last(/eqwatch status/eqwatch.dmdata.configured)=0
-        name: DM-D.S.S API キー未設定
-        priority: WARNING
-        description: ~eqwatch/.config/dmdata.env が無い
-    - uuid: 7e9211bb8ceb4382bca905cbc286d2a0
-      name: 'DM-D.S.S: API 取得'
-      type: DEPENDENT
-      key: eqwatch.dmdata.api_ok
-      delay: '0'
-      preprocessing:
-      - type: JSONPATH
-        parameters:
-        - $.dmdata.api_ok
-        error_handler: DISCARD_VALUE
-      master_item:
-        key: vfs.file.contents[/run/eqwatch-status.json]
-      tags:
-      - tag: component
-        value: dmdata
-      triggers:
-      - uuid: c59001c274f94892ae6a7a0697a0bbb3
-        expression: max(/eqwatch status/eqwatch.dmdata.api_ok,15m)=0
-        name: DM-D.S.S API 取得失敗
-        priority: WARNING
-    - uuid: 913e9a01fa114ba99237f58e1297d313
-      name: 'DM-D.S.S: WebSocket 接続数'
-      type: DEPENDENT
-      key: eqwatch.dmdata.sockets
-      delay: '0'
-      preprocessing:
-      - type: JSONPATH
-        parameters:
-        - $.dmdata.sockets
-        error_handler: DISCARD_VALUE
-      master_item:
-        key: vfs.file.contents[/run/eqwatch-status.json]
-      tags:
-      - tag: component
-        value: dmdata
-      triggers:
-      - uuid: 9256e746d15748e0b6aee54970e02ad8
-        expression: max(/eqwatch status/eqwatch.dmdata.sockets,10m)=0
-        name: DM-D.S.S WebSocket 未接続
-        priority: HIGH
-    - uuid: f6ed49bde11c43368fb094fa985bc293
-      name: 'DM-D.S.S: 接続アプリ'
-      type: DEPENDENT
-      key: eqwatch.dmdata.apps
-      delay: '0'
-      value_type: CHAR
-      trends: '0'
-      preprocessing:
-      - type: JSONPATH
-        parameters:
-        - $.dmdata.apps
-        error_handler: DISCARD_VALUE
-      master_item:
-        key: vfs.file.contents[/run/eqwatch-status.json]
-      tags:
-      - tag: component
-        value: dmdata
-    - uuid: 0668e6d7ae824c6c8e8ef49bd6f4f126
-      name: 'systemd: 失敗ユニット'
-      type: DEPENDENT
-      key: eqwatch.systemd.failed_units
-      delay: '0'
-      value_type: CHAR
-      trends: '0'
-      preprocessing:
-      - type: JSONPATH
-        parameters:
-        - $.systemd.failed_units
-      master_item:
-        key: vfs.file.contents[/run/eqwatch-status.json]
-      tags:
-      - tag: component
-        value: system
-      triggers:
-      - uuid: 7400b4755bce42e1b2c76630bdbc2b65
-        expression: length(last(/eqwatch status/eqwatch.systemd.failed_units))>0
-        name: systemd ユニット失敗
-        opdata: '{ITEM.LASTVALUE1}'
-        priority: WARNING
-    - uuid: cc0193ffa6164738a2a36cf8315f7efc
-      name: OOM 発生回数 (今回起動後)
-      type: DEPENDENT
-      key: eqwatch.oom
-      delay: '0'
-      preprocessing:
-      - type: JSONPATH
-        parameters:
-        - $.oom
-      master_item:
-        key: vfs.file.contents[/run/eqwatch-status.json]
-      tags:
-      - tag: component
-        value: system
-      triggers:
-      - uuid: 1617252bb8ed4a079a06f906f015f06a
-        expression: change(/eqwatch status/eqwatch.oom)>0
-        name: OOM Killer 発動
-        priority: WARNING
-        recovery_mode: NONE
-        manual_close: 'YES'
-    - uuid: 30324fec480040e9b8fee0ffbb4ae0ec
-      name: DNS (dmdata.jp)
-      type: DEPENDENT
-      key: eqwatch.dns_ok
-      delay: '0'
-      preprocessing:
-      - type: JSONPATH
-        parameters:
-        - $.dns_ok
-      master_item:
-        key: vfs.file.contents[/run/eqwatch-status.json]
-      tags:
-      - tag: component
-        value: network
-      triggers:
-      - uuid: c61de6d20fba4ca9a1ce55db4e74d78c
-        expression: max(/eqwatch status/eqwatch.dns_ok,5m)=0
-        name: dmdata.jp 名前解決失敗
-        priority: AVERAGE
-    - uuid: da690b424e6c486d954dcbce822374d9
-      name: NTP 同期
-      type: DEPENDENT
-      key: eqwatch.ntp_synced
-      delay: '0'
-      preprocessing:
-      - type: JSONPATH
-        parameters:
-        - $.ntp_synced
-      master_item:
-        key: vfs.file.contents[/run/eqwatch-status.json]
-      tags:
-      - tag: component
-        value: network
-      triggers:
-      - uuid: ae59c130b0e64416891b55018a7aaf12
-        expression: max(/eqwatch status/eqwatch.ntp_synced,15m)=0
-        name: NTP 未同期
-        priority: WARNING
-    - uuid: d384b344b9b346eb95c5a2ac9d7456b0
-      name: '音声: 出力先'
-      type: DEPENDENT
-      key: eqwatch.audio.sink
-      delay: '0'
-      value_type: CHAR
-      trends: '0'
-      preprocessing:
-      - type: JSONPATH
-        parameters:
-        - $.audio.sink
-      master_item:
-        key: vfs.file.contents[/run/eqwatch-status.json]
-      tags:
-      - tag: component
-        value: audio
-    - uuid: 02a2ecdf527f4576825ac954d0470b46
-      name: '音声: 出力先一致'
-      type: DEPENDENT
-      key: eqwatch.audio.sink_ok
-      delay: '0'
-      preprocessing:
-      - type: JSONPATH
-        parameters:
-        - $.audio.sink_ok
-        error_handler: DISCARD_VALUE
-      master_item:
-        key: vfs.file.contents[/run/eqwatch-status.json]
-      tags:
-      - tag: component
-        value: audio
-      triggers:
-      - uuid: 065d0e9874694c9e81dc6482fd0ba8b6
-        expression: max(/eqwatch status/eqwatch.audio.sink_ok,3m)=0
-        name: 音声出力先不一致
-        priority: HIGH
-        description: 期待値は /etc/default/eqwatch-status の EQWATCH_SINK
-    - uuid: dcebc59aa4ca4c9389040b7b8481fd10
-      name: '音声: ミュート'
-      type: DEPENDENT
-      key: eqwatch.audio.muted
-      delay: '0'
-      preprocessing:
-      - type: JSONPATH
-        parameters:
-        - $.audio.muted
-        error_handler: DISCARD_VALUE
-      master_item:
-        key: vfs.file.contents[/run/eqwatch-status.json]
-      tags:
-      - tag: component
-        value: audio
-      triggers:
-      - uuid: 77e4f96dea87409f9e78967b6877a081
-        expression: min(/eqwatch status/eqwatch.audio.muted,3m)=1
-        name: 音声ミュート
-        priority: HIGH
-    - uuid: c95dd558339045178a707aeba3b680ed
-      name: '音声: 音量'
-      type: DEPENDENT
-      key: eqwatch.audio.volume
-      delay: '0'
-      value_type: FLOAT
-      preprocessing:
-      - type: JSONPATH
-        parameters:
-        - $.audio.volume
-        error_handler: DISCARD_VALUE
-      master_item:
-        key: vfs.file.contents[/run/eqwatch-status.json]
-      tags:
-      - tag: component
-        value: audio
-      triggers:
-      - uuid: f6e06e5471674a41b6509efb84b8ea3a
-        expression: max(/eqwatch status/eqwatch.audio.volume,3m)=0
-        name: 音量 0
-        priority: HIGH
-    discovery_rules:
-    - uuid: 42bad13147104fc186e03c37a878ccf8
-      name: ファイルシステムの検出
-      type: DEPENDENT
-      key: eqwatch.fs.discovery
-      delay: '0'
-      description: Linux by Zabbix agent が拾わない tmpfs と vfat
-      item_prototypes:
-      - uuid: 323c42e1ba084376a8c6326c83ea7fbe
-        name: '{#FSNAME}: 使用率'
-        type: DEPENDENT
-        key: eqwatch.fs.pused[{#FSNAME}]
-        delay: '0'
-        value_type: FLOAT
-        units: '%'
-        preprocessing:
-        - type: JSONPATH
-          parameters:
-          - $.fs[?(@.mount=='{#FSNAME}')].pused.first()
-          error_handler: DISCARD_VALUE
-        master_item:
-          key: vfs.file.contents[/run/eqwatch-status.json]
-        tags:
-        - tag: component
-          value: storage
-        trigger_prototypes:
-        - uuid: bef7d2cf234d41f8b4a751d39e229330
-          expression: last(/eqwatch status/eqwatch.fs.pused[{#FSNAME}])>={$EQWATCH.FS.PUSED.CRIT:"{#FSNAME}"}
-          name: '{#FSNAME}: 使用率超過 (重大)'
-          opdata: '{ITEM.LASTVALUE1}'
-          priority: HIGH
-        - uuid: 2d2ce9a77af34dfcbf5dc78cfa872019
-          expression: last(/eqwatch status/eqwatch.fs.pused[{#FSNAME}])>={$EQWATCH.FS.PUSED.WARN:"{#FSNAME}"}
-          name: '{#FSNAME}: 使用率超過 (警告)'
-          opdata: '{ITEM.LASTVALUE1}'
-          priority: WARNING
-          dependencies:
-          - name: '{#FSNAME}: 使用率超過 (重大)'
-            expression: last(/eqwatch status/eqwatch.fs.pused[{#FSNAME}])>={$EQWATCH.FS.PUSED.CRIT:"{#FSNAME}"}
-      master_item:
-        key: vfs.file.contents[/run/eqwatch-status.json]
-      lld_macro_paths:
-      - lld_macro: '{#FSNAME}'
-        path: $.mount
-      preprocessing:
-      - type: JSONPATH
-        parameters:
-        - $.fs
-    - uuid: 3e761e8479a94e058c47a5b386e0e77c
-      name: SMART デバイスの検出
-      type: DEPENDENT
-      key: eqwatch.smart.discovery
-      delay: '0'
-      item_prototypes:
-      - uuid: 4a0a601dbfbb45f7b6686759c1453c30
-        name: '{#DEV}: SMART 終了コード'
-        type: DEPENDENT
-        key: eqwatch.smart.rc[{#DEV}]
-        delay: '0'
-        preprocessing:
-        - type: JSONPATH
-          parameters:
-          - $.smart[?(@.dev=='{#DEV}')].rc.first()
-        master_item:
-          key: vfs.file.contents[/run/eqwatch-status.json]
-        tags:
-        - tag: component
-          value: storage
-        trigger_prototypes:
-        - uuid: 5fe8317d6b714f7a9307c204b924206e
-          expression: bitand(last(/eqwatch status/eqwatch.smart.rc[{#DEV}]),24)>0
-          name: '{#DEV}: SMART 異常 (故障予告・しきい値割れ)'
-          priority: HIGH
-        - uuid: 81c8479530104c509e3dbdbc5519b446
-          expression: bitand(last(/eqwatch status/eqwatch.smart.rc[{#DEV}]),7)>0
-          name: '{#DEV}: SMART 取得失敗'
-          priority: AVERAGE
-        - uuid: 362de1bbfe5b4a7698e4f316f4c8382c
-          expression: bitand(last(/eqwatch status/eqwatch.smart.rc[{#DEV}]),224)>0
-          name: '{#DEV}: SMART 警告 (過去の異常・エラーログ・セルフテスト失敗)'
-          priority: WARNING
-      - uuid: 34921b700a744c8db091d401d656c744
-        name: '{#DEV}: モデル'
-        type: DEPENDENT
-        key: eqwatch.smart.model[{#DEV}]
-        delay: '0'
-        value_type: CHAR
-        trends: '0'
-        preprocessing:
-        - type: JSONPATH
-          parameters:
-          - $.smart[?(@.dev=='{#DEV}')].model.first()
-          error_handler: DISCARD_VALUE
-        master_item:
-          key: vfs.file.contents[/run/eqwatch-status.json]
-        tags:
-        - tag: component
-          value: storage
-      - uuid: cd7a20d22c1d43549ae214f370504004
-        name: '{#DEV}: 温度'
-        type: DEPENDENT
-        key: eqwatch.smart.temp[{#DEV}]
-        delay: '0'
-        units: °C
-        preprocessing:
-        - type: JSONPATH
-          parameters:
-          - $.smart[?(@.dev=='{#DEV}')].temp.first()
-          error_handler: DISCARD_VALUE
-        master_item:
-          key: vfs.file.contents[/run/eqwatch-status.json]
-        tags:
-        - tag: component
-          value: storage
-      - uuid: 6d0d470b754f40a79eef76f0b12a1086
-        name: '{#DEV}: 稼働時間'
-        type: DEPENDENT
-        key: eqwatch.smart.power_on_hours[{#DEV}]
-        delay: '0'
-        units: h
-        preprocessing:
-        - type: JSONPATH
-          parameters:
-          - $.smart[?(@.dev=='{#DEV}')].power_on_hours.first()
-          error_handler: DISCARD_VALUE
-        master_item:
-          key: vfs.file.contents[/run/eqwatch-status.json]
-        tags:
-        - tag: component
-          value: storage
-      master_item:
-        key: vfs.file.contents[/run/eqwatch-status.json]
-      lld_macro_paths:
-      - lld_macro: '{#DEV}'
-        path: $.dev
-      preprocessing:
-      - type: JSONPATH
-        parameters:
-        - $.smart
-    tags:
-    - tag: class
-      value: application
-    macros:
-    - macro: '{$EQWATCH.CPU.TEMP.WARN}'
-      value: '85'
-    - macro: '{$EQWATCH.FS.PUSED.CRIT}'
-      value: '95'
-    - macro: '{$EQWATCH.FS.PUSED.CRIT:"/mnt/rootfs.upper"}'
-      value: '90'
-    - macro: '{$EQWATCH.FS.PUSED.WARN}'
-      value: '90'
-    - macro: '{$EQWATCH.FS.PUSED.WARN:"/mnt/rootfs.upper"}'
-      value: '70'
+        - tag: class
+          value: application
+      macros:
+        - macro: '{$EQWATCH.CPU.TEMP.WARN}'
+          value: '85'
+        - macro: '{$EQWATCH.FS.PUSED.CRIT}'
+          value: '95'
+        - macro: '{$EQWATCH.FS.PUSED.CRIT:"/mnt/rootfs.upper"}'
+          value: '90'
+        - macro: '{$EQWATCH.FS.PUSED.WARN}'
+          value: '90'
+        - macro: '{$EQWATCH.FS.PUSED.WARN:"/mnt/rootfs.upper"}'
+          value: '70'
