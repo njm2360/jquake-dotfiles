@@ -70,3 +70,5 @@ systemctl --user enable jquake-dmdata-check.timer
 
 - `/usr/local/bin/firefox` は Firefox を `firefox.slice`(メモリ上限 2G)の中で起動する。`vm.panic_on_oom=1` のため、上限がないと Firefox がメモリを使い切った際にマシン全体が再起動する
 - JQuake からリンクを開くと、パッケージ付属の `firefox.desktop` が `/usr/bin/firefox` を絶対パスで起動する。これを避けるため、`~/.local/share/applications` と `mimeapps.list` で上書きする
+- JQuake は `java.awt.Desktop.browse` でリンクを開く。JDK は GVfs が `http` を扱える場合にのみ BROWSE を有効にするため、gvfs が必要
+- gvfs の FUSE(`gvfsd-fuse`)は使わないため、`gvfs-daemon.service` のドロップインで `GVFS_DISABLE_FUSE=1` を設定して無効化する
